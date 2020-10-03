@@ -4,9 +4,9 @@
 #include "rspd/unionfind.h"
 #include "rspd/angleutils.h"
 
+#include <chrono>
 #include <iostream>
 #include <unordered_map>
-#include <QElapsedTimer>
 
 PlaneDetector::PlaneDetector(const PointCloud3d *pointCloud)
     : PrimitiveDetector<3, Plane>(pointCloud)
@@ -39,14 +39,13 @@ std::set<Plane*> PlaneDetector::detect()
     float timeUpdate = 0;
     float timeDelimit = 0;
 
-    QElapsedTimer timer;
-    timer.start();
+    auto t1 = std::chrono::high_resolution_clock::now();
     size_t minNumPoints = std::max(size_t(10), size_t(pointCloud()->size() * 0.001f));
     StatisticsUtils statistics(pointCloud()->size());
     Octree octree(pointCloud());
     std::vector<PlanarPatch*> patches;
     detectPlanarPatches(&octree, &statistics, minNumPoints, patches);
-    timeDetectPatches += timer.nsecsElapsed() / 1e9;
+    timeDetectPatches += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
 
     mPatchPoints = std::vector<PlanarPatch*>(pointCloud()->size(), NULL);
     for (PlanarPatch *patch : patches)
@@ -61,25 +60,25 @@ std::set<Plane*> PlaneDetector::detect()
     bool changed;
     do
     {
-        timer.start();
+        t1 = std::chrono::high_resolution_clock::now();
         growPatches(patches);
-        timeGrowth += timer.nsecsElapsed() / 1e9;
+        timeGrowth += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
 
-        timer.start();
+        t1 = std::chrono::high_resolution_clock::now();
         mergePatches(patches);
-        timeMerge += timer.nsecsElapsed() / 1e9;
+        timeMerge += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
         std::cout << "#" << patches.size() << std::endl;
 
-        timer.start();
+        t1 = std::chrono::high_resolution_clock::now();
         changed = updatePatches(patches);
-        timeUpdate += timer.nsecsElapsed() / 1e9;
+        timeUpdate += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
     } while (changed);
 
-    timer.start();
+    t1 = std::chrono::high_resolution_clock::now();
     growPatches(patches, true);
-    timeRelaxedGrowth += timer.nsecsElapsed() / 1e9;
+    timeRelaxedGrowth += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
 
-    timer.start();
+    t1 = std::chrono::high_resolution_clock::now();
     std::vector<PlanarPatch*> truePositivePatches;
     for (PlanarPatch *patch : patches)
     {
@@ -95,7 +94,7 @@ std::set<Plane*> PlaneDetector::detect()
     }
     patches = truePositivePatches;
     std::cout << "#" << patches.size() << std::endl;
-    timeDelimit += timer.nsecsElapsed() / 1e9;
+    timeDelimit += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
 
     for (PlanarPatch *patch : patches)
     {

@@ -2,10 +2,9 @@
 #define PRIMITIVE_H
 
 #include <set>
+#include <vector>
 
 #include <Eigen/Core>
-
-#include <QtCore>
 
 template <size_t DIMENSION>
 class Primitive
@@ -74,7 +73,7 @@ public:
 
     virtual void leastSquares(const Eigen::Matrix<float, DIMENSION, -1> &points)
     {
-        Q_UNUSED(points);
+        (void)points;
     }
 
     virtual float getSignedDistanceFromSurface(const Eigen::Matrix<float, DIMENSION, 1> &point) const = 0;

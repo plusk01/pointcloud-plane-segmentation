@@ -2,7 +2,6 @@
 #include "rspd/pcacalculator.h"
 
 #include <iostream>
-#include <QElapsedTimer>
 
 PlanarPatch::PlanarPatch(const PointCloud3d *pointCloud, StatisticsUtils *statistics,
                          const std::vector<size_t> &points, float minAllowedNormal,

@@ -76,7 +76,7 @@ public:
 
     Eigen::Vector3f normalAt(const Eigen::Vector3f &point) const override
     {
-        Q_UNUSED(point);
+        (void)point;
         return mNormal;
     }
 
