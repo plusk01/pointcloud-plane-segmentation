@@ -37,8 +37,10 @@ void estimateNormals(PointCloud3d* pointCloud)
     static constexpr int nrNeighbors = 21;
     NormalEstimator3d estimator(&octree, nrNeighbors, NormalEstimator3d::QUICK);
 
+#pragma omp parallel for
     for (size_t i=0; i<pointCloud->size(); ++i) {
         NormalEstimator3d::Normal normal = estimator.estimate(i);
+        #pragma omp critical
         connectivity->addNode(i, normal.neighbors);
         (*pointCloud)[i].normal(normal.normal);
         (*pointCloud)[i].normalConfidence(normal.confidence);
