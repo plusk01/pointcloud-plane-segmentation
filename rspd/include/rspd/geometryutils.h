@@ -67,6 +67,10 @@ public:
         return unproject(vector, basisU, basisV);
     }
 
+    // monotone chain algorithm for convex hull
+    // https://en.wikipedia.org/wiki/Convex_hull_algorithms#Algorithms
+    // https://github.com/MiguelVieira/ConvexHull2D/blob/master/ConvexHull.cpp#L119
+    // https://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Convex_hull/Monotone_chain#C++
     static void convexHull(const std::vector<Eigen::Vector2f> &points, std::vector<size_t> &indices)
     {
         if (points.size() < 3)
@@ -75,6 +79,7 @@ public:
             {
                 indices.push_back(i);
             }
+            return;
         }
         std::vector<IndexedPoint2d*> indexedPoints(points.size());
         for (size_t i = 0; i < indexedPoints.size(); i++)
