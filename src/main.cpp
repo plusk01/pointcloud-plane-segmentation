@@ -1,5 +1,6 @@
 #include <chrono>
 #include <iostream>
+#include <limits>
 #include <memory>
 #include <set>
 #include <vector>
@@ -147,7 +148,35 @@ int main(int argc, char *argv[]) {
         ++i;
     }
 
-    visualization::DrawGeometries(geometries, "PointCloud", 1600, 900);
+    visualization::DrawGeometries(geometries, "Points and Planes", 1600, 900);
+
+    visualization::VisualizerWithVertexSelection visualizer;
+    visualizer.CreateVisualizerWindow("Plane Selection: Select Point Close to Desired Plane", 1600, 900);
+    visualizer.AddGeometry(cloud_ptr);
+    visualizer.Run();
+    visualizer.DestroyVisualizerWindow();
+    const auto pts = visualizer.GetPickedPoints();
+
+    for (const auto& pt : pts) {
+        double d = std::numeric_limits<double>::max();
+        Plane* closest_plane;
+        for (const auto& p : planes) {
+            if (std::abs(p->getSignedDistanceFromSurface(pt.coord.cast<float>())) < d) {
+                d = std::abs(p->getSignedDistanceFromSurface(pt.coord.cast<float>()));
+                closest_plane = p;
+            }
+        }
+
+        std::cout << std::endl;
+        if (closest_plane == nullptr) {
+            std::cout << "Could not find closest plane to selected point!" << std::endl;
+        } else {
+            std::cout << "Closest plane to selected point is: " << std::endl;
+            std::cout << closest_plane->normal().transpose() << " " << closest_plane->distanceFromOrigin() << std::endl;
+        }
+        std::cout << std::endl;
+    }
+
     utility::LogInfo("End of the test.\n");
 
     return 0;
