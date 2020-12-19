@@ -7,7 +7,7 @@ ConnectivityGraph::ConnectivityGraph(size_t numNodes)
     mGroupIndices = std::vector<size_t>(numNodes, 0);
 }
 
-void ConnectivityGraph::addNode(size_t node, const std::vector<size_t> &neighbors)
+void ConnectivityGraph::addNode(size_t node, const std::vector<int> &neighbors)
 {
     mGraphIndices[node].first = mGraph.size();
     mGraphIndices[node].second = neighbors.size();

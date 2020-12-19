@@ -40,6 +40,7 @@ std::set<Plane*> PlaneDetector::detect()
     float timeDelimit = 0;
 
     auto t1 = std::chrono::high_resolution_clock::now();
+    // size_t minNumPoints = 50; //std::max(size_t(10), size_t(pointCloud()->size() * 0.001f));
     size_t minNumPoints = std::max(size_t(10), size_t(pointCloud()->size() * 0.001f));
     StatisticsUtils statistics(pointCloud()->size());
     Octree octree(pointCloud());

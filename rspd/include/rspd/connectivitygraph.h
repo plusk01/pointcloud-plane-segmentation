@@ -14,7 +14,7 @@ class ConnectivityGraph
 public:
     ConnectivityGraph(size_t numNodes);
 
-    void addNode(size_t node, const std::vector<size_t> &neighbors);
+    void addNode(size_t node, const std::vector<int> &neighbors);
 
     std::vector<size_t> neighbors(size_t node) const
     {

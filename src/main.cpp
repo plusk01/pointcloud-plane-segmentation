@@ -8,7 +8,6 @@
 #include <Eigen/Dense>
 #include <open3d/Open3D.h>
 
-#include <rspd/normalestimator.h>
 #include <rspd/planedetector.h>
 #include <rspd/pointcloud.h>
 #include <rspd/point.h>
@@ -19,34 +18,11 @@ PointCloud3d* fromOpen3D(const open3d::geometry::PointCloud& cloud)
 {
     std::vector<Point3d> points;
     points.reserve(cloud.points_.size());
-    for (const auto& p : cloud.points_) {
-        points.emplace_back(p.cast<float>());
+    for (size_t i=0; i<cloud.points_.size(); i++) {
+        points.emplace_back(cloud.points_[i].cast<float>());
+        points.back().normal(cloud.normals_[i].cast<float>());
     }
     return new PointCloud3d(points);
-}
-
-// ----------------------------------------------------------------------------
-
-void estimateNormals(PointCloud3d* pointCloud)
-{
-    Octree octree(pointCloud);
-    octree.partition(10, 30);
-
-    ConnectivityGraph* connectivity = new ConnectivityGraph(pointCloud->size());
-    pointCloud->connectivity(connectivity);
-
-    static constexpr int nrNeighbors = 21;
-    NormalEstimator3d estimator(&octree, nrNeighbors, NormalEstimator3d::QUICK);
-
-#pragma omp parallel for
-    for (size_t i=0; i<pointCloud->size(); ++i) {
-        NormalEstimator3d::Normal normal = estimator.estimate(i);
-        #pragma omp critical
-        connectivity->addNode(i, normal.neighbors);
-        (*pointCloud)[i].normal(normal.normal);
-        (*pointCloud)[i].normalConfidence(normal.confidence);
-        (*pointCloud)[i].curvature(normal.curvature);
-    }
 }
 
 // ----------------------------------------------------------------------------
@@ -86,7 +62,7 @@ std::shared_ptr<geometry::TriangleMesh> makePlane(
 
 int main(int argc, char *argv[]) {
 
-    utility::SetVerbosityLevel(utility::VerbosityLevel::Debug);
+    // utility::SetVerbosityLevel(utility::VerbosityLevel::Debug);
     if (argc < 2) {
         utility::LogInfo("Open3D {}", OPEN3D_VERSION);
         utility::LogInfo("Usage:");
@@ -94,6 +70,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    static constexpr int nrNeighbors = 75;
+    const geometry::KDTreeSearchParam &search_param = geometry::KDTreeSearchParamKNN(nrNeighbors);
 
     auto cloud_ptr = std::make_shared<geometry::PointCloud>();
     if (io::ReadPointCloud(argv[1], *cloud_ptr)) {
@@ -103,8 +81,14 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    if (cloud_ptr->HasNormals()) {
+        std::cout << "already has normals" << std::endl;
+    } else {
+        std::cout << "no normals" << std::endl;
+    }
+
     auto t1 = std::chrono::high_resolution_clock::now();
-    cloud_ptr->EstimateNormals();
+    cloud_ptr->EstimateNormals(search_param);
     std::cout << "o3d EstimateNormals: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
 
     t1 = std::chrono::high_resolution_clock::now();
@@ -112,13 +96,40 @@ int main(int argc, char *argv[]) {
     std::cout << "cloud convert: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
 
     t1 = std::chrono::high_resolution_clock::now();
-    estimateNormals(pointCloud);
-    std::cout << "rspd estimateNormals: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
+    ConnectivityGraph* connectivity = new ConnectivityGraph(pointCloud->size());
+    pointCloud->connectivity(connectivity);
+    geometry::KDTreeFlann kdtree;
+    kdtree.SetGeometry(*cloud_ptr);
+    std::vector<std::vector<int>> allidx;
+    allidx.resize(cloud_ptr->points_.size());
+    std::cout << "num points: " << cloud_ptr->points_.size() << std::endl;
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < (int)cloud_ptr->points_.size(); i++) {
+        std::vector<int> indices;
+        std::vector<double> distance2;
+        if (kdtree.Search(cloud_ptr->points_[i], search_param, indices, distance2) >= 3) {
+#pragma omp critical
+            connectivity->addNode(i, indices);
+        }
+    }
+    std::cout << "kdtree search: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
+
 
     t1 = std::chrono::high_resolution_clock::now();
     PlaneDetector rspd(pointCloud);
     std::set<Plane*> planes = rspd.detect();
     std::cout << "rspd detect: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
+
+    std::cout << "Detected the following " << planes.size() << " planes:" << std::endl;
+    std::cout << "==============================" << std::endl;
+    for (const auto& p : planes) {
+        std::cout << p->normal().transpose() << " ";
+        std::cout << p->distanceFromOrigin() << "\t";
+        std::cout << p->center().transpose() << "\t";
+        std::cout << p->basisU().transpose() << "\t";
+        std::cout << p->basisV().transpose() << std::endl;
+    }
+    std::cout << "==============================" << std::endl;
 
     //
     // Visualization
@@ -167,14 +178,15 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        std::cout << std::endl;
         if (closest_plane == nullptr) {
             std::cout << "Could not find closest plane to selected point!" << std::endl;
         } else {
-            std::cout << "Closest plane to selected point is: " << std::endl;
-            std::cout << closest_plane->normal().transpose() << " " << closest_plane->distanceFromOrigin() << std::endl;
+            std::cout << closest_plane->normal().transpose() << " ";
+            std::cout << closest_plane->distanceFromOrigin() << "\t";
+            std::cout << closest_plane->center().transpose() << "\t";
+            std::cout << closest_plane->basisU().transpose() << "\t";
+            std::cout << closest_plane->basisV().transpose() << std::endl;
         }
-        std::cout << std::endl;
     }
 
     utility::LogInfo("End of the test.\n");
