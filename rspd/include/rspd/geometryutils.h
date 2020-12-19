@@ -1,10 +1,9 @@
 #ifndef GEOMETRYUTILS_H
 #define GEOMETRYUTILS_H
 
-#include <Eigen/Dense>
+#include <vector>
 
-#include "line.h"
-#include "rect.h"
+#include <Eigen/Dense>
 
 class GeometryUtils
 {
@@ -39,32 +38,6 @@ public:
         Eigen::Vector3f basisU, basisV;
         orthogonalBasis(normal, basisU, basisV);
         return projectOntoOrthogonalBasis(vector, basisU, basisV);
-    }
-
-    inline static Line2d projectOntoOrthogonalBasis(Line3d line, const Eigen::Vector3f &basisU, const Eigen::Vector3f &basisV)
-    {
-        Eigen::Vector2f p1 = projectOntoOrthogonalBasis(line.p1(), basisU, basisV);
-        Eigen::Vector2f p2 = projectOntoOrthogonalBasis(line.p2(), basisU, basisV);
-        return Line2d(p1, p2);
-    }
-
-    inline static Line2d projectOntoOrthogonalBasis(Line3d line, const Eigen::Vector3f &normal)
-    {
-        Eigen::Vector3f basisU, basisV;
-        orthogonalBasis(normal, basisU, basisV);
-        return projectOntoOrthogonalBasis(line, basisU, basisV);
-    }
-
-    inline static Eigen::Vector3f unproject(const Eigen::Vector2f &vector, const Eigen::Vector3f &basisU, const Eigen::Vector3f &basisV)
-    {
-        return vector.x() * basisU + vector.y() * basisV;
-    }
-
-    inline static Eigen::Vector3f unproject(const Eigen::Vector2f &vector, const Eigen::Vector3f &normal)
-    {
-        Eigen::Vector3f basisU, basisV;
-        orthogonalBasis(normal, basisU, basisV);
-        return unproject(vector, basisU, basisV);
     }
 
     // monotone chain algorithm for convex hull

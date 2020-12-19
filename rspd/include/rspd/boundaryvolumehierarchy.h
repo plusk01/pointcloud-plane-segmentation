@@ -6,17 +6,17 @@
 #include <set>
 #include <queue>
 
-#include "rspd/partitioner.h"
+#include "pointcloud.h"
 
 template <size_t DIMENSION>
-class BoundaryVolumeHierarchy : public Partitioner<DIMENSION>
+class BoundaryVolumeHierarchy
 {
 public:
     typedef typename Point<DIMENSION>::Vector Vector;
     static const size_t NUM_CHILDREN = 1 << DIMENSION;
 
     BoundaryVolumeHierarchy(const PointCloud<DIMENSION> *pointCloud)
-        : Partitioner<DIMENSION>(pointCloud)
+        : mPointCloud(pointCloud)
         , mRoot(this)
         , mParent(this)
         , mLeaf(true)
@@ -46,7 +46,12 @@ public:
         }
     }
 
-    void partition(size_t levels = 1, size_t minNumPoints = 1, float minSize = 0.0f) override
+    const PointCloud<DIMENSION>* pointCloud() const
+    {
+        return mPointCloud;
+    }
+
+    void partition(size_t levels = 1, size_t minNumPoints = 1, float minSize = 0.0f)
     {
         if (!isLeaf())
         {
@@ -102,20 +107,15 @@ public:
         }
     }
 
-    const Partitioner<DIMENSION>* getContainingLeaf(size_t index) const override
-    {
-        return mRoot->mLeafTable[index];
-    }
-
     BoundaryVolumeHierarchy<DIMENSION>* child(size_t index)
     {
         return mChildren[index];
     }
 
-    std::vector<const Partitioner<DIMENSION>*> children() const override
+    std::vector<const BoundaryVolumeHierarchy<DIMENSION>*> children() const
     {
-        if (isLeaf()) return std::vector<const Partitioner<DIMENSION>*>();
-        std::vector<const Partitioner<DIMENSION>*> children;
+        if (isLeaf()) return std::vector<const BoundaryVolumeHierarchy<DIMENSION>*>();
+        std::vector<const BoundaryVolumeHierarchy<DIMENSION>*> children;
         for (size_t i = 0; i < NUM_CHILDREN; i++)
         {
             if (mChildren[i] != NULL)
@@ -124,7 +124,7 @@ public:
         return children;
     }
 
-    const Partitioner<DIMENSION>* parent() const override
+    const BoundaryVolumeHierarchy<DIMENSION>* parent() const
     {
         return mParent;
     }
@@ -139,12 +139,12 @@ public:
         return mSize;
     }
 
-    bool isRoot() const override
+    bool isRoot() const
     {
         return this == mRoot;
     }
 
-    bool isLeaf() const override
+    bool isLeaf() const
     {
         return mLeaf;
     }
@@ -154,7 +154,7 @@ public:
         return mLevel;
     }
 
-    size_t numPoints() const override
+    size_t numPoints() const
     {
         if (isLeaf())
         {
@@ -172,13 +172,13 @@ public:
         }
     }
 
-    Rect<DIMENSION> extension() const override
+    Rect<DIMENSION> extension() const
     {
         return Rect<DIMENSION>(mCenter - Vector::Constant(mSize),
                             mCenter + Vector::Constant(mSize));
     }
 
-    std::vector<size_t> points() const override
+    std::vector<size_t> points() const
     {
         if (isLeaf())
         {
@@ -212,6 +212,7 @@ public:
     }
 
 private:
+    const PointCloud<DIMENSION>* mPointCloud;
     BoundaryVolumeHierarchy *mRoot;
     BoundaryVolumeHierarchy *mParent;
     BoundaryVolumeHierarchy *mChildren[NUM_CHILDREN];
@@ -223,7 +224,7 @@ private:
     std::vector<BoundaryVolumeHierarchy<DIMENSION>*> mLeafTable;
 
     BoundaryVolumeHierarchy(BoundaryVolumeHierarchy *parent, const Vector &center, float size)
-        : Partitioner<DIMENSION>(parent->pointCloud())
+        : mPointCloud(parent->pointCloud())
         , mRoot(parent->mRoot)
         , mParent(parent)
         , mCenter(center)
@@ -335,10 +336,8 @@ private:
 
 };
 
-template class BoundaryVolumeHierarchy<2>;
 template class BoundaryVolumeHierarchy<3>;
 
-typedef BoundaryVolumeHierarchy<2> Quadtree;
 typedef BoundaryVolumeHierarchy<3> Octree;
 
 #endif // BOUNDARYVOLUMEHIERARCHY_H

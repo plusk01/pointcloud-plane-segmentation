@@ -1,6 +1,5 @@
 #include "rspd/planedetector.h"
 
-#include "rspd/pcacalculator.h"
 #include "rspd/unionfind.h"
 #include "rspd/angleutils.h"
 
@@ -10,7 +9,7 @@
 #include <queue>
 
 PlaneDetector::PlaneDetector(const PointCloud3d *pointCloud)
-    : PrimitiveDetector<3, Plane>(pointCloud)
+    : mPointCloud(pointCloud)
     , mMinNormalDiff(std::cos(AngleUtils::deg2rad(60.0f)))
     , mMaxDist(std::cos(AngleUtils::deg2rad(75.0f)))
     , mOutlierRatio(0.75f)
@@ -21,15 +20,6 @@ PlaneDetector::PlaneDetector(const PointCloud3d *pointCloud)
 std::set<Plane*> PlaneDetector::detect()
 {
     std::set<Plane*> planes;
-
-    clearRemovedPoints();
-    for (size_t i = 0; i < pointCloud()->geometry()->numPlanes(); i++)
-    {
-        for (const size_t &inlier : pointCloud()->geometry()->plane(i)->inliers())
-        {
-            removePoint(inlier);
-        }
-    }
 
     std::cout << mMinNormalDiff << " " << mMaxDist << " " << mOutlierRatio << std::endl;
 
@@ -172,7 +162,7 @@ void PlaneDetector::growPatches(std::vector<PlanarPatch*> &patches, bool relaxed
             queue.pop();
             for (int neighbor : pointCloud()->at(point).neighbors())
             {
-                if (isRemoved(neighbor) || mPatchPoints[neighbor] != NULL || (!relaxed && patch->isVisited(neighbor))) continue;
+                if (mPatchPoints[neighbor] != NULL || (!relaxed && patch->isVisited(neighbor))) continue;
                 if ((!relaxed && patch->isInlier(neighbor)) || (relaxed && std::abs(patch->plane().getSignedDistanceFromSurface(pointCloud()->at(neighbor).position())) < patch->maxDistPlane()))
                 {
                     queue.push(neighbor);
@@ -369,62 +359,4 @@ bool PlaneDetector::isFalsePositive(PlanarPatch *patch)
 {
     return patch->numUpdates() == 0 ||
             patch->getSize() / float(pointCloud()->extension().maxSize()) < 0.01f;
-}
-
-Plane* PlaneDetector::detectPlane(const std::vector<size_t> &points)
-{
-    StatisticsUtils statistics(pointCloud()->size());
-    PlanarPatch placeholder(pointCloud(), &statistics, points, mMinNormalDiff, mMaxDist, mOutlierRatio);
-    mPatchPoints = std::vector<PlanarPatch*>(pointCloud()->size(), NULL);
-    for (size_t i = 0; i < pointCloud()->geometry()->numPlanes(); i++)
-    {
-        const Plane *plane = pointCloud()->geometry()->plane(i);
-        for (const size_t &point : plane->inliers())
-        {
-            mPatchPoints[point] = &placeholder;
-        }
-    }
-    std::vector<size_t> newPoints;
-    for (const size_t &point : points)
-    {
-        if (mPatchPoints[point] == NULL)
-        {
-            newPoints.push_back(point);
-        }
-    }
-    PlanarPatch patch(pointCloud(), &statistics, newPoints, mMinNormalDiff, mMaxDist, mOutlierRatio);
-    patch.updatePlane();
-    delimitPlane(&patch);
-    Plane *plane = new Plane(patch.plane());
-    plane->inliers(newPoints);
-    return plane;
-}
-
-void PlaneDetector::growRegion(std::vector<size_t> &points)
-{
-    StatisticsUtils statistics(pointCloud()->size());
-    PlanarPatch placeholder(pointCloud(), &statistics, points, mMinNormalDiff, mMaxDist, mOutlierRatio);
-    mPatchPoints = std::vector<PlanarPatch*>(pointCloud()->size(), NULL);
-    for (size_t i = 0; i < pointCloud()->geometry()->numPlanes(); i++)
-    {
-        const Plane *plane = pointCloud()->geometry()->plane(i);
-        for (const size_t &point : plane->inliers())
-        {
-            mPatchPoints[point] = &placeholder;
-        }
-    }
-    std::vector<size_t> newPoints;
-    for (const size_t &point : points)
-    {
-        if (mPatchPoints[point] == NULL)
-        {
-            newPoints.push_back(point);
-        }
-    }
-    PlanarPatch *patch = new PlanarPatch(pointCloud(), &statistics, newPoints, mMinNormalDiff, mMaxDist, mOutlierRatio);
-    patch->update();
-    std::vector<PlanarPatch*> patches = { patch };
-    growPatches(patches);
-    points = patch->points();
-    delete patch;
 }

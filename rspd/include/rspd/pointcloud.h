@@ -7,7 +7,6 @@
 
 #include "point.h"
 #include "rect.h"
-#include "geometry.h"
 
 template <size_t DIMENSION>
 class PointCloud
@@ -28,7 +27,6 @@ public:
     PointCloud(const std::vector<Point<DIMENSION> > &points, size_t mode = ALL)
         : mPoints(points)
         , mMode(mode)
-        , mGeometry(new Geometry)
     {
         static_assert(DIMENSION > 0, "Dimension must be greater than zero.");
         update();
@@ -36,7 +34,6 @@ public:
 
     PointCloud(size_t size, size_t mode)
         : mMode(mode)
-        , mGeometry(new Geometry)
     {
         mPoints.resize(size);
         static_assert(DIMENSION > 0, "Dimension must be greater than zero.");
@@ -44,15 +41,11 @@ public:
 
     PointCloud(size_t mode = ALL)
         : mMode(mode)
-        , mGeometry(new Geometry)
     {
         static_assert(DIMENSION > 0, "Dimension must be greater than zero.");
     }
 
-    virtual ~PointCloud()
-    {
-        delete mGeometry;
-    }
+    virtual ~PointCloud() {}
 
     size_t mode() const
     {
@@ -153,17 +146,6 @@ public:
         mExtension = Rect<DIMENSION>(min, max);
     }
 
-    Geometry* geometry() const
-    {
-        return mGeometry;
-    }
-
-    void geometry(Geometry *geometry)
-    {
-        if (mGeometry != NULL) delete mGeometry;
-        mGeometry = geometry;
-    }
-
 protected:
     std::vector<Point<DIMENSION> > mPoints;
     std::vector<bool> mVisiblePoints;
@@ -171,7 +153,6 @@ protected:
     size_t mMode;
     Vector mCenter;
     Rect<DIMENSION> mExtension;
-    Geometry *mGeometry;
 
 };
 \

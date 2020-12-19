@@ -1,20 +1,19 @@
 #ifndef PLANE_H
 #define PLANE_H
 
-#include "primitive.h"
 #include "geometryutils.h"
 
-class Plane : public Primitive3d
+class Plane
 {
 public:
     Plane()
-        : Primitive3d(Eigen::Vector3f::Zero())
+        : mCenter(Eigen::Vector3f::Zero())
     {
 
     }
 
     Plane(const Eigen::Vector3f &center, const Eigen::Vector3f &normal, Eigen::Vector3f basisU = Eigen::Vector3f::Zero(), Eigen::Vector3f basisV = Eigen::Vector3f::Zero())
-        : Primitive3d(center)
+        : mCenter(center)
         , mNormal(normal)
         , mBasisU(basisU)
         , mBasisV(basisV)
@@ -30,7 +29,7 @@ public:
     void normal(const Eigen::Vector3f &normal)
     {
         mNormal = normal;
-        mDistanceFromOrigin = -mNormal.dot(Primitive3d::center());
+        mDistanceFromOrigin = -mNormal.dot(center());
     }
 
     const Eigen::Vector3f& basisU() const
@@ -53,15 +52,15 @@ public:
         mBasisV = basisV;
     }
 
-    const Eigen::Vector3f& center() const override
+    const Eigen::Vector3f& center() const
     {
-        return Primitive3d::center();
+        return mCenter;
     }
 
-    void center(const Eigen::Vector3f &center) override
+    void center(const Eigen::Vector3f &center)
     {
-        Primitive3d::center(center);
-        mDistanceFromOrigin = -mNormal.dot(Primitive3d::center());
+        mCenter = center;
+        mDistanceFromOrigin = -mNormal.dot(center);
     }
 
     float distanceFromOrigin() const
@@ -69,20 +68,25 @@ public:
         return mDistanceFromOrigin;
     }
 
-    float getSignedDistanceFromSurface(const Eigen::Vector3f &point) const override
+    float getSignedDistanceFromSurface(const Eigen::Vector3f &point) const
     {
         return mNormal.dot(point) + mDistanceFromOrigin;
     }
 
-    Eigen::Vector3f normalAt(const Eigen::Vector3f &point) const override
+    const std::vector<size_t>& inliers() const
     {
-        (void)point;
-        return mNormal;
+        return mInliers;
     }
 
-    void leastSquares(const Eigen::Matrix3Xf &points) override;
+    void inliers(const std::vector<size_t> &inliers)
+    {
+        mInliers = inliers;
+    }
 
 private:
+    Eigen::Vector3f mCenter;
+    std::vector<size_t> mInliers;
+
     Eigen::Vector3f mNormal;
     Eigen::Vector3f mBasisU;
     Eigen::Vector3f mBasisV;

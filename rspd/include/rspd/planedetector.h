@@ -2,18 +2,13 @@
 #define PLANEDETECTOR_H
 
 #include "pointcloud.h"
-#include "primitivedetector.h"
 #include "planarpatch.h"
 #include "boundaryvolumehierarchy.h"
 
-class PlaneDetector : public PrimitiveDetector<3, Plane>
+class PlaneDetector
 {
 public:
     PlaneDetector(const PointCloud3d *pointCloud);
-
-    Plane* detectPlane(const std::vector<size_t> &points);
-
-    void growRegion(std::vector<size_t> &points);
 
     void delimitPlane(PlanarPatch *patch);
 
@@ -49,9 +44,16 @@ public:
         mOutlierRatio = outlierRatio;
     }
 
-    std::set<Plane*> detect() override;
+    std::set<Plane*> detect();
+
+    const PointCloud3d* pointCloud() const
+    {
+        return mPointCloud;
+    }
 
 private:
+    const PointCloud3d *mPointCloud;
+
     std::vector<PlanarPatch*> mPatchPoints;
     float mMinNormalDiff;
     float mMaxDist;

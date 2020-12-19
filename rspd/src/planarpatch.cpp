@@ -1,5 +1,4 @@
 #include "rspd/planarpatch.h"
-#include "rspd/pcacalculator.h"
 
 #include <iostream>
 
