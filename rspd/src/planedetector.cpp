@@ -7,6 +7,7 @@
 #include <chrono>
 #include <iostream>
 #include <unordered_map>
+#include <queue>
 
 PlaneDetector::PlaneDetector(const PointCloud3d *pointCloud)
     : PrimitiveDetector<3, Plane>(pointCloud)
@@ -40,8 +41,8 @@ std::set<Plane*> PlaneDetector::detect()
     float timeDelimit = 0;
 
     auto t1 = std::chrono::high_resolution_clock::now();
-    // size_t minNumPoints = 50; //std::max(size_t(10), size_t(pointCloud()->size() * 0.001f));
-    size_t minNumPoints = std::max(size_t(10), size_t(pointCloud()->size() * 0.001f));
+    size_t minNumPoints = 30; //std::max(size_t(10), size_t(pointCloud()->size() * 0.001f));
+    // size_t minNumPoints = std::max(size_t(10), size_t(pointCloud()->size() * 0.001f));
     StatisticsUtils statistics(pointCloud()->size());
     Octree octree(pointCloud());
     std::vector<PlanarPatch*> patches;
@@ -169,10 +170,8 @@ void PlaneDetector::growPatches(std::vector<PlanarPatch*> &patches, bool relaxed
         {
             size_t point = queue.front();
             queue.pop();
-            std::pair<std::vector<size_t>::const_iterator, std::vector<size_t>::const_iterator> neighborsIterators = pointCloud()->connectivity()->neighborsIterator(point);
-            for (std::vector<size_t>::const_iterator neighborsIterator = neighborsIterators.first; neighborsIterator != neighborsIterators.second; ++neighborsIterator)
+            for (int neighbor : pointCloud()->at(point).neighbors())
             {
-                size_t neighbor = *neighborsIterator;
                 if (isRemoved(neighbor) || mPatchPoints[neighbor] != NULL || (!relaxed && patch->isVisited(neighbor))) continue;
                 if ((!relaxed && patch->isInlier(neighbor)) || (relaxed && std::abs(patch->plane().getSignedDistanceFromSurface(pointCloud()->at(neighbor).position())) < patch->maxDistPlane()))
                 {
@@ -212,10 +211,8 @@ void PlaneDetector::mergePatches(std::vector<PlanarPatch*> &patches)
     {
         for (const size_t &point : p->points())
         {
-            std::pair<std::vector<size_t>::const_iterator, std::vector<size_t>::const_iterator> neighborsIterators = pointCloud()->connectivity()->neighborsIterator(point);
-            for (std::vector<size_t>::const_iterator neighborsIterator = neighborsIterators.first; neighborsIterator != neighborsIterators.second; ++neighborsIterator)
+            for (int neighbor : pointCloud()->at(point).neighbors())
             {
-                size_t neighbor = *neighborsIterator;
                 PlanarPatch *np = mPatchPoints[neighbor];
                 if (p == np || np == NULL || graph[np->index() * n + p->index()] || graph[p->index() * n + np->index()] ||
                     disconnectedPatches[p->index() * n + np->index()] || p->isVisited(neighbor) || np->isVisited(point)) continue;

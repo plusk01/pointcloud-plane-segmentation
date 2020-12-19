@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <numeric>
 #include <set>
+#include <queue>
 
 #include "rspd/partitioner.h"
 

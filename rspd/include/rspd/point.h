@@ -157,6 +157,9 @@ public:
         return *this;
     }
 
+    const std::vector<int>& neighbors() const { return mNeighbors; }
+    void neighbors(std::vector<int>& neighbors) { mNeighbors.swap(neighbors); }
+
 private:
     Vector mPosition;
     Eigen::Vector3f mColor;
@@ -166,6 +169,7 @@ private:
     float mNormalConfidence;
     float mCurvature;
     float mAngle;
+    std::vector<int> mNeighbors;
 
 };
 

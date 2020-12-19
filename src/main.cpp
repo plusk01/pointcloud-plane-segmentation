@@ -14,13 +14,14 @@
 
 using namespace open3d;
 
-PointCloud3d* fromOpen3D(const open3d::geometry::PointCloud& cloud)
+PointCloud3d* fromOpen3D(const open3d::geometry::PointCloud& cloud, std::vector<std::vector<int>>& neighbors)
 {
     std::vector<Point3d> points;
     points.reserve(cloud.points_.size());
     for (size_t i=0; i<cloud.points_.size(); i++) {
         points.emplace_back(cloud.points_[i].cast<float>());
         points.back().normal(cloud.normals_[i].cast<float>());
+        points.back().neighbors(neighbors[i]);
     }
     return new PointCloud3d(points);
 }
@@ -92,12 +93,6 @@ int main(int argc, char *argv[]) {
     std::cout << "o3d EstimateNormals: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
 
     t1 = std::chrono::high_resolution_clock::now();
-    PointCloud3d* pointCloud = fromOpen3D(*cloud_ptr);
-    std::cout << "cloud convert: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
-
-    t1 = std::chrono::high_resolution_clock::now();
-    ConnectivityGraph* connectivity = new ConnectivityGraph(pointCloud->size());
-    pointCloud->connectivity(connectivity);
     geometry::KDTreeFlann kdtree;
     kdtree.SetGeometry(*cloud_ptr);
     std::vector<std::vector<int>> allidx;
@@ -108,12 +103,15 @@ int main(int argc, char *argv[]) {
         std::vector<int> indices;
         std::vector<double> distance2;
         if (kdtree.Search(cloud_ptr->points_[i], search_param, indices, distance2) >= 3) {
-#pragma omp critical
-            connectivity->addNode(i, indices);
+            allidx[i] = indices;
         }
     }
     std::cout << "kdtree search: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
 
+
+    t1 = std::chrono::high_resolution_clock::now();
+    PointCloud3d* pointCloud = fromOpen3D(*cloud_ptr, allidx);
+    std::cout << "cloud convert: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
 
     t1 = std::chrono::high_resolution_clock::now();
     PlaneDetector rspd(pointCloud);

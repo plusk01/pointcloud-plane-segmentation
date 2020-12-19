@@ -8,7 +8,6 @@
 #include "point.h"
 #include "rect.h"
 #include "geometry.h"
-#include "connectivitygraph.h"
 
 template <size_t DIMENSION>
 class PointCloud
@@ -29,7 +28,6 @@ public:
     PointCloud(const std::vector<Point<DIMENSION> > &points, size_t mode = ALL)
         : mPoints(points)
         , mMode(mode)
-        , mConnectivity(NULL)
         , mGeometry(new Geometry)
     {
         static_assert(DIMENSION > 0, "Dimension must be greater than zero.");
@@ -38,7 +36,6 @@ public:
 
     PointCloud(size_t size, size_t mode)
         : mMode(mode)
-        , mConnectivity(NULL)
         , mGeometry(new Geometry)
     {
         mPoints.resize(size);
@@ -47,7 +44,6 @@ public:
 
     PointCloud(size_t mode = ALL)
         : mMode(mode)
-        , mConnectivity(NULL)
         , mGeometry(new Geometry)
     {
         static_assert(DIMENSION > 0, "Dimension must be greater than zero.");
@@ -55,7 +51,6 @@ public:
 
     virtual ~PointCloud()
     {
-        if (mConnectivity != NULL) delete mConnectivity;
         delete mGeometry;
     }
 
@@ -158,22 +153,6 @@ public:
         mExtension = Rect<DIMENSION>(min, max);
     }
 
-    bool hasConnectivity() const
-    {
-        return mConnectivity != NULL;
-    }
-
-    ConnectivityGraph* connectivity() const
-    {
-        return mConnectivity;
-    }
-
-    void connectivity(ConnectivityGraph *connectivity)
-    {
-        if (mConnectivity != NULL) delete mConnectivity;
-        mConnectivity = connectivity;
-    }
-
     Geometry* geometry() const
     {
         return mGeometry;
@@ -192,7 +171,6 @@ protected:
     size_t mMode;
     Vector mCenter;
     Rect<DIMENSION> mExtension;
-    ConnectivityGraph *mConnectivity;
     Geometry *mGeometry;
 
 };
