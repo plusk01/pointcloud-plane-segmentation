@@ -22,9 +22,11 @@ public:
         , mLeaf(true)
         , mLevel(0)
     {
-        Rect<DIMENSION> extension = pointCloud->extension();
-        mCenter = extension.center();
-        mSize = extension.maxSize() / 2;
+        // Rect<DIMENSION> extension = pointCloud->extension();
+        // mCenter = extension.center();
+        // mSize = extension.maxSize() / 2;
+        mCenter = pointCloud->extensionCenter();
+        mSize = pointCloud->maxSize() / 2;
         mIndices = std::vector<size_t>(pointCloud->size());
         std::iota(mIndices.begin(), mIndices.end(), 0);
         mLeafTable = std::vector<BoundaryVolumeHierarchy<DIMENSION>*>(pointCloud->size(), this);
@@ -149,7 +151,7 @@ public:
         return mLeaf;
     }
 
-    size_t octreeLevel() const
+    size_t level() const
     {
         return mLevel;
     }
@@ -172,11 +174,11 @@ public:
         }
     }
 
-    Rect<DIMENSION> extension() const
-    {
-        return Rect<DIMENSION>(mCenter - Vector::Constant(mSize),
-                            mCenter + Vector::Constant(mSize));
-    }
+    // Rect<DIMENSION> extension() const
+    // {
+    //     return Rect<DIMENSION>(mCenter - Vector::Constant(mSize),
+    //                         mCenter + Vector::Constant(mSize));
+    // }
 
     std::vector<size_t> points() const
     {
@@ -336,8 +338,6 @@ private:
 
 };
 
-template class BoundaryVolumeHierarchy<3>;
-
-typedef BoundaryVolumeHierarchy<3> Octree;
+using BVH3d = BoundaryVolumeHierarchy<3>;
 
 #endif // BOUNDARYVOLUMEHIERARCHY_H

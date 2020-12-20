@@ -19,8 +19,6 @@ PlaneDetector::PlaneDetector(const PointCloud3d *pointCloud)
 
 std::set<Plane*> PlaneDetector::detect()
 {
-    std::set<Plane*> planes;
-
     std::cout << mMinNormalDiff << " " << mMaxDist << " " << mOutlierRatio << std::endl;
 
     float timeDetectPatches = 0;
@@ -34,7 +32,7 @@ std::set<Plane*> PlaneDetector::detect()
     size_t minNumPoints = 30; //std::max(size_t(10), size_t(pointCloud()->size() * 0.001f));
     // size_t minNumPoints = std::max(size_t(10), size_t(pointCloud()->size() * 0.001f));
     StatisticsUtils statistics(pointCloud()->size());
-    Octree octree(pointCloud());
+    BVH3d octree(pointCloud());
     std::vector<PlanarPatch*> patches;
     detectPlanarPatches(&octree, &statistics, minNumPoints, patches);
     timeDetectPatches += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
@@ -88,6 +86,7 @@ std::set<Plane*> PlaneDetector::detect()
     std::cout << "#" << patches.size() << std::endl;
     timeDelimit += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
 
+    std::set<Plane*> planes;
     for (PlanarPatch *patch : patches)
     {
         Plane *plane = new Plane(patch->plane());
@@ -96,7 +95,7 @@ std::set<Plane*> PlaneDetector::detect()
         delete patch;
     }
 
-    std::cout << "#" << patches.size() << std::endl;
+    std::cout << "#" << planes.size() << std::endl;
     std::cout << "Detect planar patches - Time elapsed: " << timeDetectPatches << "s" <<  std::endl;
     std::cout << "Merge patches - Time elapsed: " << timeMerge << "s" <<  std::endl;
     std::cout << "Grow patches - Time elapsed: " << timeGrowth << "s" <<  std::endl;
@@ -105,17 +104,10 @@ std::set<Plane*> PlaneDetector::detect()
     std::cout << "Total time elapsed: " << timeDetectPatches + timeMerge + timeGrowth + timeRelaxedGrowth + timeUpdate << "s" << std::endl;
     std::cout << "Delimit planes - Time elapsed: " << timeDelimit << "s" <<  std::endl;
 
-    std::cout << "-----------------------------" << std::endl;
-    std::cout << "Found planes: " << std::endl;
-    for (const auto& plane : planes) {
-        std::cout << plane->normal().transpose() << " " << plane->distanceFromOrigin() << std::endl;
-    }
-    std::cout << "-----------------------------" << std::endl;
-
     return planes;
 }
 
-bool PlaneDetector::detectPlanarPatches(Octree *node, StatisticsUtils *statistics, size_t minNumPoints, std::vector<PlanarPatch*> &patches)
+bool PlaneDetector::detectPlanarPatches(BVH3d *node, StatisticsUtils *statistics, size_t minNumPoints, std::vector<PlanarPatch*> &patches)
 {
     if (node->numPoints() < minNumPoints) return false;
     node->partition(1, minNumPoints);
@@ -127,7 +119,7 @@ bool PlaneDetector::detectPlanarPatches(Octree *node, StatisticsUtils *statistic
             hasPlanarPatch = true;
         }
     }
-    if (!hasPlanarPatch && node->octreeLevel() > 2)
+    if (!hasPlanarPatch && node->level() > 2)
     {
         PlanarPatch *patch = new PlanarPatch(pointCloud(), statistics, node->points(), mMinNormalDiff, mMaxDist, mOutlierRatio);
         if (patch->isPlanar())
@@ -335,28 +327,16 @@ void PlaneDetector::delimitPlane(PlanarPatch *patch)
     Eigen::Vector3f minBasisV = patch->rect().basis.row(1);
     center -= minBasisU * minBasisU.dot(center);
     center -= minBasisV * minBasisV.dot(center);
-    center += minBasisU * (patch->rect().rect.bottomLeft()(0) + patch->rect().rect.topRight()(0)) / 2;
-    center += minBasisV * (patch->rect().rect.bottomLeft()(1) + patch->rect().rect.topRight()(1)) / 2;
-    float lengthU = (patch->rect().rect.topRight()(0) - patch->rect().rect.bottomLeft()(0)) / 2;
-    float lengthV = (patch->rect().rect.topRight()(1) - patch->rect().rect.bottomLeft()(1)) / 2;
+    center += minBasisU * (patch->rect().bottomLeft(0) + patch->rect().topRight(0)) / 2;
+    center += minBasisV * (patch->rect().bottomLeft(1) + patch->rect().topRight(1)) / 2;
+    float lengthU = (patch->rect().topRight(0) - patch->rect().bottomLeft(0)) / 2;
+    float lengthV = (patch->rect().topRight(1) - patch->rect().bottomLeft(1)) / 2;
     Plane newPlane(center, patch->plane().normal(), minBasisU * lengthU, minBasisV * lengthV);
     patch->plane(newPlane);
-}
-
-void PlaneDetector::delimitPlane(Plane *plane)
-{
-    StatisticsUtils statistics(pointCloud()->size());
-    PlanarPatch patch(pointCloud(), &statistics, plane->inliers(), mMinNormalDiff, mMaxDist, mOutlierRatio);
-    patch.updatePlane();
-    patch.normal(plane->normal());
-    delimitPlane(&patch);
-    plane->basisU(patch.plane().basisU());
-    plane->basisV(patch.plane().basisV());
-    plane->center(patch.plane().center());
 }
 
 bool PlaneDetector::isFalsePositive(PlanarPatch *patch)
 {
     return patch->numUpdates() == 0 ||
-            patch->getSize() / float(pointCloud()->extension().maxSize()) < 0.01f;
+            patch->getSize() / float(pointCloud()->maxSize()) < 0.01f;
 }

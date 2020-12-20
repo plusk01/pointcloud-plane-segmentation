@@ -6,7 +6,6 @@
 #include <set>
 
 #include "point.h"
-#include "rect.h"
 
 template <size_t DIMENSION>
 class PointCloud
@@ -14,53 +13,14 @@ class PointCloud
 public:
     typedef typename Point<DIMENSION>::Vector Vector;
 
-    enum Mode
-    {
-        COLOR = 1,
-        INTENSITY = 2,
-        NORMAL = 4,
-        NORMAL_CONFIDENCE = 8,
-        CURVATURE = 16,
-        ALL = 31
-    };
-
-    PointCloud(const std::vector<Point<DIMENSION> > &points, size_t mode = ALL)
+    PointCloud(const std::vector<Point<DIMENSION> > &points)
         : mPoints(points)
-        , mMode(mode)
     {
         static_assert(DIMENSION > 0, "Dimension must be greater than zero.");
         update();
     }
 
-    PointCloud(size_t size, size_t mode)
-        : mMode(mode)
-    {
-        mPoints.resize(size);
-        static_assert(DIMENSION > 0, "Dimension must be greater than zero.");
-    }
-
-    PointCloud(size_t mode = ALL)
-        : mMode(mode)
-    {
-        static_assert(DIMENSION > 0, "Dimension must be greater than zero.");
-    }
-
     virtual ~PointCloud() {}
-
-    size_t mode() const
-    {
-        return mMode;
-    }
-
-    void mode(size_t mode)
-    {
-        mMode = mode;
-    }
-
-    bool hasMode(size_t mode) const
-    {
-        return mMode & mode;
-    }
 
     Point<DIMENSION>& operator[](size_t index)
     {
@@ -70,20 +30,6 @@ public:
     const Point<DIMENSION>& at(size_t index) const
     {
         return mPoints[index];
-    }
-
-    void add(const Point<DIMENSION> &point)
-    {
-        mMutex.lock();
-        mPoints.push_back(point);
-        mMutex.unlock();
-    }
-
-    void remove(int index)
-    {
-        mMutex.lock();
-        mPoints.erase(mPoints.begin() + index);
-        mMutex.unlock();
     }
 
     size_t size() const
@@ -96,17 +42,10 @@ public:
         return mCenter;
     }
 
-    Rect<DIMENSION> extension() const
-    {
-        return mExtension;
-    }
-
-    void clear()
-    {
-        mMutex.lock();
-        mPoints.clear();
-        mMutex.unlock();
-    }
+    float maxSize() const { return mMaxSize; }
+    const Vector& bottomLeft() const { return mBottomLeft; }
+    const Vector& topRight() const { return mTopRight; }
+    Vector extensionCenter() const { return (mBottomLeft + mTopRight) / 2; }
 
     void update()
     {
@@ -143,23 +82,26 @@ public:
                 max(i) = std::max(max(i), point.position()(i));
             }
         }
-        mExtension = Rect<DIMENSION>(min, max);
+
+        mBottomLeft = min;
+        mTopRight = max;
+        float maxSize = 0;
+        for (size_t dim = 0; dim < DIMENSION; dim++)
+        {
+            maxSize = std::max(maxSize, max(dim) - min(dim));
+        }
+        mMaxSize = maxSize;
     }
 
 protected:
     std::vector<Point<DIMENSION> > mPoints;
-    std::vector<bool> mVisiblePoints;
-    std::mutex mMutex;
-    size_t mMode;
     Vector mCenter;
-    Rect<DIMENSION> mExtension;
+    Vector mBottomLeft;
+    Vector mTopRight;
+    float mMaxSize;
 
 };
-\
-template class PointCloud<2>;
-template class PointCloud<3>;
 
-typedef PointCloud<2> PointCloud2d;
-typedef PointCloud<3> PointCloud3d;
+using PointCloud3d = PointCloud<3>;
 
 #endif // POINTCLOUD_H

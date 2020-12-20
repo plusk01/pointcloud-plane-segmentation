@@ -14,7 +14,8 @@ struct RotatedRect
     Eigen::Matrix3Xf matrix;
     Eigen::Matrix3f basis;
     float area;
-    Rect3d rect;
+    Eigen::Vector3f bottomLeft;
+    Eigen::Vector3f topRight;
 
     RotatedRect()
         : area(std::numeric_limits<float>::max())
@@ -37,7 +38,8 @@ struct RotatedRect
         this->matrix = newMatrix;
         this->area = area;
         this->basis = newBasis;
-        this->rect = Rect3d(min, max);
+        this->bottomLeft = min;
+        this->topRight = max;
     }
 
 };

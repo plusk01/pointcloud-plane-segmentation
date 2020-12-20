@@ -59,7 +59,7 @@ private:
     float mMaxDist;
     float mOutlierRatio;
 
-    bool detectPlanarPatches(Octree *node, StatisticsUtils *statistics, size_t minNumPoints, std::vector<PlanarPatch*> &patches);
+    bool detectPlanarPatches(BVH3d *node, StatisticsUtils *statistics, size_t minNumPoints, std::vector<PlanarPatch*> &patches);
 
     void growPatches(std::vector<PlanarPatch*> &patches, bool relaxed = false);
 

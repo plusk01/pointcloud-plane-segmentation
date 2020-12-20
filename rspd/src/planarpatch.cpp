@@ -33,8 +33,12 @@ float PlanarPatch::getSize() const
             max(i) = std::max(max(i), position(i));
         }
     }
-    Rect3d rect(min, max);
-    return rect.maxSize();
+
+    float maxSize = 0;
+    for (size_t dim = 0; dim < 3; dim++) {
+        maxSize = std::max(maxSize, max(dim) - min(dim));
+    }
+    return maxSize;
 }
 
 Plane PlanarPatch::getPlane()
