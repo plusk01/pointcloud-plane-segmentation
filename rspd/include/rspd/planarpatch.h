@@ -1,40 +1,43 @@
 #ifndef PLANEDETECTORPATCH_H
 #define PLANEDETECTORPATCH_H
 
+#include <memory>
 #include <unordered_set>
 #include <unordered_map>
 
 #include <Eigen/Core>
 #include "plane.h"
-#include "pointcloud.h"
+// #include "pointcloud.h"
 #include "statisticsutils.h"
+
+#include <open3d/Open3D.h>
 
 struct RotatedRect
 {
-    Eigen::Matrix3Xf matrix;
-    Eigen::Matrix3f basis;
-    float area;
-    Eigen::Vector3f bottomLeft;
-    Eigen::Vector3f topRight;
+    Eigen::Matrix3Xd matrix;
+    Eigen::Matrix3d basis;
+    double area;
+    Eigen::Vector3d bottomLeft;
+    Eigen::Vector3d topRight;
 
     RotatedRect()
-        : area(std::numeric_limits<float>::max())
+        : area(std::numeric_limits<double>::max())
     {
 
     }
 
-    RotatedRect(const Eigen::Matrix3Xf &matrix, const Eigen::Matrix3f &basis, float degrees)
+    RotatedRect(const Eigen::Matrix3Xd &matrix, const Eigen::Matrix3d &basis, double degrees)
     {
-        Eigen::Matrix3f newBasis;
+        Eigen::Matrix3d newBasis;
         newBasis.row(0) = AngleUtils::rotate(basis.row(0), degrees, basis.row(2));
         newBasis.row(1) = AngleUtils::rotate(basis.row(1), degrees, basis.row(2));
         newBasis.row(2) = basis.row(2);
-        Eigen::Matrix3Xf newMatrix = newBasis * matrix;
-        Eigen::Vector3f max = newMatrix.rowwise().maxCoeff();
-        Eigen::Vector3f min = newMatrix.rowwise().minCoeff();
-        float w = max(0) - min(0);
-        float h = max(1) - min(1);
-        float area = w * h;
+        Eigen::Matrix3Xd newMatrix = newBasis * matrix;
+        Eigen::Vector3d max = newMatrix.rowwise().maxCoeff();
+        Eigen::Vector3d min = newMatrix.rowwise().minCoeff();
+        double w = max(0) - min(0);
+        double h = max(1) - min(1);
+        double area = w * h;
         this->matrix = newMatrix;
         this->area = area;
         this->basis = newBasis;
@@ -47,9 +50,10 @@ struct RotatedRect
 class PlanarPatch
 {
 public:
-    PlanarPatch(const PointCloud3d *mPointCloud, StatisticsUtils *statistics,
-                const std::vector<size_t> &mPoints, float minAllowedNormal,
-                float maxAllowedDist, float outlierRatio);
+    using PointCloudConstPtr = std::shared_ptr<const open3d::geometry::PointCloud>;
+    PlanarPatch(const PointCloudConstPtr& mPointCloud, StatisticsUtils *statistics,
+                const std::vector<size_t> &mPoints, double minAllowedNormal,
+                double maxAllowedDist, double outlierRatio);
 
     size_t index() const
     {
@@ -63,8 +67,8 @@ public:
 
     inline bool isInlier(size_t point) const
     {
-        return std::abs(mPlane.normal().dot(mPointCloud->at(point).normal())) > mMinNormalDiff &&
-                std::abs(mPlane.getSignedDistanceFromSurface(mPointCloud->at(point).position())) < mMaxDistPlane;
+        return std::abs(mPlane.normal().dot(mPointCloud->normals_[point])) > mMinNormalDiff &&
+                std::abs(mPlane.getSignedDistanceFromSurface(mPointCloud->points_[point])) < mMaxDistPlane;
     }
 
     inline bool isVisited(size_t point) const
@@ -93,10 +97,6 @@ public:
 
     bool isPlanar();
 
-    bool isPlanar2();
-
-    void update();
-
     void updatePlane();
 
     const std::vector<size_t>& points() const
@@ -119,42 +119,42 @@ public:
         mPlane = plane;
     }
 
-    const Eigen::Vector3f center() const
+    const Eigen::Vector3d center() const
     {
         return mPlane.center();
     }
 
-    void center(const Eigen::Vector3f &center)
+    void center(const Eigen::Vector3d &center)
     {
         mPlane.center(center);
     }
 
-    const Eigen::Vector3f normal() const
+    const Eigen::Vector3d normal() const
     {
         return mPlane.normal();
     }
 
-    void normal(const Eigen::Vector3f &normal)
+    void normal(const Eigen::Vector3d &normal)
     {
         mPlane.normal(normal);
     }
 
-    float maxDistPlane() const
+    double maxDistPlane() const
     {
         return mMaxDistPlane;
     }
 
-    void maxDistPlane(float maxDistPlane)
+    void maxDistPlane(double maxDistPlane)
     {
         mMaxDistPlane = maxDistPlane;
     }
 
-    float minNormalDiff() const
+    double minNormalDiff() const
     {
         return mMinNormalDiff;
     }
 
-    void minNormalDiff(float minNormalDiff)
+    void minNormalDiff(double minNormalDiff)
     {
         mMinNormalDiff = minNormalDiff;
     }
@@ -186,17 +186,17 @@ public:
 
     void removeOutliers();
 
-    float getSize() const;
+    double getSize() const;
 
 private:
-    const PointCloud3d *mPointCloud;
+    PointCloudConstPtr mPointCloud;
     StatisticsUtils *mStatistics;
     std::vector<size_t> mPoints;
-    float mOriginalSize;
+    double mOriginalSize;
     size_t mIndex;
     Plane mPlane;
-    float mMaxDistPlane;
-    float mMinNormalDiff;
+    double mMaxDistPlane;
+    double mMinNormalDiff;
     RotatedRect mRect;
     size_t mNumNewPoints;
     size_t mNumUpdates;
@@ -204,18 +204,18 @@ private:
     std::vector<bool> mVisited2;
     std::unordered_map<size_t, bool> mOutliers;
     bool mStable;
-    float mMinAllowedNormal;
-    float mMaxAllowedDist;
-    float mOutlierRatio;
+    double mMinAllowedNormal;
+    double mMaxAllowedDist;
+    double mOutlierRatio;
     bool mUsedVisited2;
 
     bool isNormalValid() const;
 
     bool isDistValid() const;
 
-    float getMaxPlaneDist();
+    double getMaxPlaneDist();
 
-    float getMinNormalDiff();
+    double getMinNormalDiff();
 
     Plane getPlane();
 

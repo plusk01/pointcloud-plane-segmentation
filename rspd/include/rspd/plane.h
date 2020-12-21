@@ -7,12 +7,12 @@ class Plane
 {
 public:
     Plane()
-        : mCenter(Eigen::Vector3f::Zero())
+        : mCenter(Eigen::Vector3d::Zero())
     {
 
     }
 
-    Plane(const Eigen::Vector3f &center, const Eigen::Vector3f &normal, Eigen::Vector3f basisU = Eigen::Vector3f::Zero(), Eigen::Vector3f basisV = Eigen::Vector3f::Zero())
+    Plane(const Eigen::Vector3d &center, const Eigen::Vector3d &normal, Eigen::Vector3d basisU = Eigen::Vector3d::Zero(), Eigen::Vector3d basisV = Eigen::Vector3d::Zero())
         : mCenter(center)
         , mNormal(normal)
         , mBasisU(basisU)
@@ -21,43 +21,43 @@ public:
         mDistanceFromOrigin = -mNormal.dot(center);
     }
 
-    const Eigen::Vector3f& normal() const
+    const Eigen::Vector3d& normal() const
     {
         return mNormal;
     }
 
-    void normal(const Eigen::Vector3f &normal)
+    void normal(const Eigen::Vector3d &normal)
     {
         mNormal = normal;
         mDistanceFromOrigin = -mNormal.dot(center());
     }
 
-    const Eigen::Vector3f& basisU() const
+    const Eigen::Vector3d& basisU() const
     {
         return mBasisU;
     }
 
-    void basisU(const Eigen::Vector3f &basisU)
+    void basisU(const Eigen::Vector3d &basisU)
     {
         mBasisU = basisU;
     }
 
-    const Eigen::Vector3f& basisV() const
+    const Eigen::Vector3d& basisV() const
     {
         return mBasisV;
     }
 
-    void basisV(const Eigen::Vector3f &basisV)
+    void basisV(const Eigen::Vector3d &basisV)
     {
         mBasisV = basisV;
     }
 
-    const Eigen::Vector3f& center() const
+    const Eigen::Vector3d& center() const
     {
         return mCenter;
     }
 
-    void center(const Eigen::Vector3f &center)
+    void center(const Eigen::Vector3d &center)
     {
         mCenter = center;
         mDistanceFromOrigin = -mNormal.dot(center);
@@ -68,7 +68,7 @@ public:
         return mDistanceFromOrigin;
     }
 
-    float getSignedDistanceFromSurface(const Eigen::Vector3f &point) const
+    float getSignedDistanceFromSurface(const Eigen::Vector3d &point) const
     {
         return mNormal.dot(point) + mDistanceFromOrigin;
     }
@@ -84,12 +84,12 @@ public:
     }
 
 private:
-    Eigen::Vector3f mCenter;
+    Eigen::Vector3d mCenter;
     std::vector<size_t> mInliers;
 
-    Eigen::Vector3f mNormal;
-    Eigen::Vector3f mBasisU;
-    Eigen::Vector3f mBasisV;
+    Eigen::Vector3d mNormal;
+    Eigen::Vector3d mBasisU;
+    Eigen::Vector3d mBasisV;
     float mDistanceFromOrigin;
 
 };

@@ -1,63 +1,71 @@
 #ifndef PLANEDETECTOR_H
 #define PLANEDETECTOR_H
 
-#include "pointcloud.h"
 #include "planarpatch.h"
 #include "boundaryvolumehierarchy.h"
+
+#include <open3d/Open3D.h>
 
 class PlaneDetector
 {
 public:
-    PlaneDetector(const PointCloud3d *pointCloud);
+    using PointCloudConstPtr = std::shared_ptr<const open3d::geometry::PointCloud>;
+    PlaneDetector(const PointCloudConstPtr& pointCloud, std::vector<std::vector<int>>& neighbors);
 
     void delimitPlane(PlanarPatch *patch);
 
     void delimitPlane(Plane *plane);
 
-    float minNormalDiff() const
+    double minNormalDiff() const
     {
         return mMinNormalDiff;
     }
 
-    void minNormalDiff(float minNormalDiff)
+    void minNormalDiff(double minNormalDiff)
     {
         mMinNormalDiff = minNormalDiff;
     }
 
-    float maxDist() const
+    double maxDist() const
     {
         return mMaxDist;
     }
 
-    void maxDist(float maxDist)
+    void maxDist(double maxDist)
     {
         mMaxDist = maxDist;
     }
 
-    float outlierRatio() const
+    double outlierRatio() const
     {
         return mOutlierRatio;
     }
 
-    void outlierRatio(float outlierRatio)
+    void outlierRatio(double outlierRatio)
     {
         mOutlierRatio = outlierRatio;
     }
 
     std::set<Plane*> detect();
 
-    const PointCloud3d* pointCloud() const
+    const PointCloudConstPtr& pointCloud() const
     {
         return mPointCloud;
     }
 
 private:
-    const PointCloud3d *mPointCloud;
+    PointCloudConstPtr mPointCloud;
+    std::vector<std::vector<int>> mNeighbors;
+
+    Eigen::Vector3d mBottomLeft;
+    Eigen::Vector3d mTopRight;
+    Eigen::Vector3d mExtCenter;
+    double mMaxSize; // pointcloud rect extension max size
 
     std::vector<PlanarPatch*> mPatchPoints;
-    float mMinNormalDiff;
-    float mMaxDist;
-    float mOutlierRatio;
+    double mMinNormalDiff;
+    double mMaxDist;
+    double mOutlierRatio;
 
     bool detectPlanarPatches(BVH3d *node, StatisticsUtils *statistics, size_t minNumPoints, std::vector<PlanarPatch*> &patches);
 

@@ -18,24 +18,24 @@ public:
      * @param basis2
      *      An orthogonal vector to normal and basis1
      */
-    inline static void orthogonalBasis(const Eigen::Vector3f &normal, Eigen::Vector3f &v2, Eigen::Vector3f &v3)
+    inline static void orthogonalBasis(const Eigen::Vector3d &normal, Eigen::Vector3d &v2, Eigen::Vector3d &v3)
     {
-        v2 = Eigen::Vector3f(normal.y() - normal.z(), -normal.x(), normal.x());
+        v2 = Eigen::Vector3d(normal.y() - normal.z(), -normal.x(), normal.x());
         v2 = v2.normalized();
         v3 = normal.cross(v2);
         v3 = v3.normalized();
     }
 
-    inline static Eigen::Vector2f projectOntoOrthogonalBasis(const Eigen::Vector3f &vector, const Eigen::Vector3f &basisU, const Eigen::Vector3f &basisV)
+    inline static Eigen::Vector2d projectOntoOrthogonalBasis(const Eigen::Vector3d &vector, const Eigen::Vector3d &basisU, const Eigen::Vector3d &basisV)
     {
         float alpha = vector.dot(basisU);
         float beta = vector.dot(basisV);
-        return Eigen::Vector2f(alpha, beta);
+        return Eigen::Vector2d(alpha, beta);
     }
 
-    inline static Eigen::Vector2f projectOntoOrthogonalBasis(const Eigen::Vector3f &vector, const Eigen::Vector3f &normal)
+    inline static Eigen::Vector2d projectOntoOrthogonalBasis(const Eigen::Vector3d &vector, const Eigen::Vector3d &normal)
     {
-        Eigen::Vector3f basisU, basisV;
+        Eigen::Vector3d basisU, basisV;
         orthogonalBasis(normal, basisU, basisV);
         return projectOntoOrthogonalBasis(vector, basisU, basisV);
     }
@@ -44,7 +44,7 @@ public:
     // https://en.wikipedia.org/wiki/Convex_hull_algorithms#Algorithms
     // https://github.com/MiguelVieira/ConvexHull2D/blob/master/ConvexHull.cpp#L119
     // https://en.wikibooks.org/wiki/Algorithm_Implementation/Geometry/Convex_hull/Monotone_chain#C++
-    static void convexHull(const std::vector<Eigen::Vector2f> &points, std::vector<size_t> &indices)
+    static void convexHull(const std::vector<Eigen::Vector2d> &points, std::vector<size_t> &indices)
     {
         if (points.size() < 3)
         {
@@ -96,8 +96,8 @@ private:
     struct IndexedPoint2d
     {
         size_t index;
-        Eigen::Vector2f point;
-        IndexedPoint2d(size_t index, const Eigen::Vector2f &point)
+        Eigen::Vector2d point;
+        IndexedPoint2d(size_t index, const Eigen::Vector2d &point)
             : index(index)
             , point(point)
         {

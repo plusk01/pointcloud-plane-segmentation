@@ -8,36 +8,44 @@
 #include <unordered_map>
 #include <queue>
 
-PlaneDetector::PlaneDetector(const PointCloud3d *pointCloud)
+PlaneDetector::PlaneDetector(const PointCloudConstPtr& pointCloud, std::vector<std::vector<int>>& neighbors)
     : mPointCloud(pointCloud)
     , mMinNormalDiff(std::cos(AngleUtils::deg2rad(60.0f)))
     , mMaxDist(std::cos(AngleUtils::deg2rad(75.0f)))
     , mOutlierRatio(0.75f)
 {
+    mNeighbors.swap(neighbors);
 
+    mBottomLeft = pointCloud->GetMinBound();
+    mTopRight = pointCloud->GetMaxBound();
+    mExtCenter = (mBottomLeft + mTopRight) / 2;
+
+    double maxSize = 0;
+    for (size_t dim = 0; dim<3; dim++) {
+        maxSize = std::max(maxSize, mTopRight(dim) - mBottomLeft(dim));
+    }
+    mMaxSize = maxSize;
 }
 
 std::set<Plane*> PlaneDetector::detect()
 {
-    std::cout << mMinNormalDiff << " " << mMaxDist << " " << mOutlierRatio << std::endl;
-
-    float timeDetectPatches = 0;
-    float timeMerge = 0;
-    float timeGrowth = 0;
-    float timeRelaxedGrowth = 0;
-    float timeUpdate = 0;
-    float timeDelimit = 0;
+    double timeDetectPatches = 0;
+    double timeMerge = 0;
+    double timeGrowth = 0;
+    double timeRelaxedGrowth = 0;
+    double timeUpdate = 0;
+    double timeDelimit = 0;
 
     auto t1 = std::chrono::high_resolution_clock::now();
     size_t minNumPoints = 30; //std::max(size_t(10), size_t(pointCloud()->size() * 0.001f));
     // size_t minNumPoints = std::max(size_t(10), size_t(pointCloud()->size() * 0.001f));
-    StatisticsUtils statistics(pointCloud()->size());
+    StatisticsUtils statistics(pointCloud()->points_.size());
     BVH3d octree(pointCloud());
     std::vector<PlanarPatch*> patches;
     detectPlanarPatches(&octree, &statistics, minNumPoints, patches);
-    timeDetectPatches += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
+    timeDetectPatches += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
 
-    mPatchPoints = std::vector<PlanarPatch*>(pointCloud()->size(), NULL);
+    mPatchPoints = std::vector<PlanarPatch*>(pointCloud()->points_.size(), NULL);
     for (PlanarPatch *patch : patches)
     {
         for (const size_t &point : patch->points())
@@ -52,21 +60,21 @@ std::set<Plane*> PlaneDetector::detect()
     {
         t1 = std::chrono::high_resolution_clock::now();
         growPatches(patches);
-        timeGrowth += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
+        timeGrowth += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
 
         t1 = std::chrono::high_resolution_clock::now();
         mergePatches(patches);
-        timeMerge += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
+        timeMerge += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
         std::cout << "#" << patches.size() << std::endl;
 
         t1 = std::chrono::high_resolution_clock::now();
         changed = updatePatches(patches);
-        timeUpdate += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
+        timeUpdate += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
     } while (changed);
 
     t1 = std::chrono::high_resolution_clock::now();
     growPatches(patches, true);
-    timeRelaxedGrowth += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
+    timeRelaxedGrowth += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
 
     t1 = std::chrono::high_resolution_clock::now();
     std::vector<PlanarPatch*> truePositivePatches;
@@ -84,7 +92,7 @@ std::set<Plane*> PlaneDetector::detect()
     }
     patches = truePositivePatches;
     std::cout << "#" << patches.size() << std::endl;
-    timeDelimit += std::chrono::duration_cast<std::chrono::duration<float>>(std::chrono::high_resolution_clock::now() - t1).count();
+    timeDelimit += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
 
     std::set<Plane*> planes;
     for (PlanarPatch *patch : patches)
@@ -152,10 +160,10 @@ void PlaneDetector::growPatches(std::vector<PlanarPatch*> &patches, bool relaxed
         {
             size_t point = queue.front();
             queue.pop();
-            for (int neighbor : pointCloud()->at(point).neighbors())
+            for (int neighbor : mNeighbors[point])
             {
                 if (mPatchPoints[neighbor] != NULL || (!relaxed && patch->isVisited(neighbor))) continue;
-                if ((!relaxed && patch->isInlier(neighbor)) || (relaxed && std::abs(patch->plane().getSignedDistanceFromSurface(pointCloud()->at(neighbor).position())) < patch->maxDistPlane()))
+                if ((!relaxed && patch->isInlier(neighbor)) || (relaxed && std::abs(patch->plane().getSignedDistanceFromSurface(pointCloud()->points_[neighbor])) < patch->maxDistPlane()))
                 {
                     queue.push(neighbor);
                     patch->addPoint(neighbor);
@@ -184,7 +192,7 @@ void PlaneDetector::mergePatches(std::vector<PlanarPatch*> &patches)
     {
         for (size_t j = i + 1; j < patches.size(); j++)
         {
-            float normalThreshold = std::min(patches[i]->minNormalDiff(), patches[j]->minNormalDiff());
+            double normalThreshold = std::min(patches[i]->minNormalDiff(), patches[j]->minNormalDiff());
             disconnectedPatches[i * n + j] = std::abs(patches[i]->plane().normal().dot(patches[j]->plane().normal())) < normalThreshold;
             disconnectedPatches[j * n + i] = disconnectedPatches[i * n + j];
         }
@@ -193,21 +201,23 @@ void PlaneDetector::mergePatches(std::vector<PlanarPatch*> &patches)
     {
         for (const size_t &point : p->points())
         {
-            for (int neighbor : pointCloud()->at(point).neighbors())
+            for (int neighbor : mNeighbors[point])
             {
                 PlanarPatch *np = mPatchPoints[neighbor];
                 if (p == np || np == NULL || graph[np->index() * n + p->index()] || graph[p->index() * n + np->index()] ||
                     disconnectedPatches[p->index() * n + np->index()] || p->isVisited(neighbor) || np->isVisited(point)) continue;
                 p->visit(neighbor);
                 np->visit(point);
-                const Point3d &p1 = pointCloud()->at(point);
-                const Point3d &p2 = pointCloud()->at(neighbor);
-                float distThreshold = std::max(p->maxDistPlane(), np->maxDistPlane());
-                float normalThreshold = std::min(p->minNormalDiff(), np->minNormalDiff());
-                graph[p->index() * n + np->index()] = std::abs(p->plane().normal().dot(p2.normal())) > normalThreshold &&
-                        std::abs(np->plane().normal().dot(p1.normal())) > normalThreshold &&
-                        std::abs(p->plane().getSignedDistanceFromSurface(p2.position())) < distThreshold &&
-                        std::abs(np->plane().getSignedDistanceFromSurface(p1.position())) < distThreshold;
+                const Eigen::Vector3d &p1 = pointCloud()->points_[point];
+                const Eigen::Vector3d &n1 = pointCloud()->normals_[point];
+                const Eigen::Vector3d &p2 = pointCloud()->points_[neighbor];
+                const Eigen::Vector3d &n2 = pointCloud()->normals_[neighbor];
+                double distThreshold = std::max(p->maxDistPlane(), np->maxDistPlane());
+                double normalThreshold = std::min(p->minNormalDiff(), np->minNormalDiff());
+                graph[p->index() * n + np->index()] = std::abs(p->plane().normal().dot(n2)) > normalThreshold &&
+                        std::abs(np->plane().normal().dot(n1)) > normalThreshold &&
+                        std::abs(p->plane().getSignedDistanceFromSurface(p2)) < distThreshold &&
+                        std::abs(np->plane().getSignedDistanceFromSurface(p1)) < distThreshold;
             }
         }
     }
@@ -274,12 +284,12 @@ bool PlaneDetector::updatePatches(std::vector<PlanarPatch*> &patches)
 
 void PlaneDetector::getPlaneOutlier(const PlanarPatch *patch, std::vector<size_t> &outlier)
 {
-    Eigen::Vector3f basisU, basisV;
+    Eigen::Vector3d basisU, basisV;
     GeometryUtils::orthogonalBasis(patch->plane().normal(), basisU, basisV);
-    std::vector<Eigen::Vector2f> projectedPoints(patch->points().size());
+    std::vector<Eigen::Vector2d> projectedPoints(patch->points().size());
     for (size_t i = 0; i < patch->points().size(); i++)
     {
-        Eigen::Vector3f position = pointCloud()->at(patch->points()[i]).position();
+        Eigen::Vector3d position = pointCloud()->points_[patch->points()[i]];
         projectedPoints[i] = GeometryUtils::projectOntoOrthogonalBasis(position, basisU, basisV);
     }
     GeometryUtils::convexHull(projectedPoints, outlier);
@@ -293,23 +303,23 @@ void PlaneDetector::delimitPlane(PlanarPatch *patch)
 {
     std::vector<size_t> outlier;
     getPlaneOutlier(patch, outlier);
-    Eigen::Vector3f normal = patch->plane().normal();
-    Eigen::Vector3f basisU, basisV;
+    Eigen::Vector3d normal = patch->plane().normal();
+    Eigen::Vector3d basisU, basisV;
     GeometryUtils::orthogonalBasis(normal, basisU, basisV);
-    Eigen::Matrix3f basis;
+    Eigen::Matrix3d basis;
     basis << basisU.transpose(), basisV.transpose(), normal.transpose();
-    Eigen::Matrix3Xf matrix(3, outlier.size());
+    Eigen::Matrix3Xd matrix(3, outlier.size());
     for (size_t i = 0; i < outlier.size(); i++)
     {
-        matrix.col(i) = pointCloud()->at(outlier[i]).position();
+        matrix.col(i) = pointCloud()->points_[outlier[i]];
     }
-    float minAngle = 0;
-    float maxAngle = 90;
+    double minAngle = 0;
+    double maxAngle = 90;
     while (maxAngle - minAngle > 5)
     {
-        float mid = (maxAngle + minAngle) / 2;
-        float left = (minAngle + mid) / 2;
-        float right = (maxAngle + mid) / 2;
+        double mid = (maxAngle + minAngle) / 2;
+        double left = (minAngle + mid) / 2;
+        double right = (maxAngle + mid) / 2;
         RotatedRect leftRect(matrix, basis, left);
         RotatedRect rightRect(matrix, basis, right);
         if (leftRect.area < rightRect.area)
@@ -322,15 +332,15 @@ void PlaneDetector::delimitPlane(PlanarPatch *patch)
         }
     }
     patch->rect() = RotatedRect(matrix, basis, (minAngle + maxAngle) / 2);
-    Eigen::Vector3f center = patch->plane().center();
-    Eigen::Vector3f minBasisU = patch->rect().basis.row(0);
-    Eigen::Vector3f minBasisV = patch->rect().basis.row(1);
+    Eigen::Vector3d center = patch->plane().center();
+    Eigen::Vector3d minBasisU = patch->rect().basis.row(0);
+    Eigen::Vector3d minBasisV = patch->rect().basis.row(1);
     center -= minBasisU * minBasisU.dot(center);
     center -= minBasisV * minBasisV.dot(center);
     center += minBasisU * (patch->rect().bottomLeft(0) + patch->rect().topRight(0)) / 2;
     center += minBasisV * (patch->rect().bottomLeft(1) + patch->rect().topRight(1)) / 2;
-    float lengthU = (patch->rect().topRight(0) - patch->rect().bottomLeft(0)) / 2;
-    float lengthV = (patch->rect().topRight(1) - patch->rect().bottomLeft(1)) / 2;
+    double lengthU = (patch->rect().topRight(0) - patch->rect().bottomLeft(0)) / 2;
+    double lengthV = (patch->rect().topRight(1) - patch->rect().bottomLeft(1)) / 2;
     Plane newPlane(center, patch->plane().normal(), minBasisU * lengthU, minBasisV * lengthV);
     patch->plane(newPlane);
 }
@@ -338,5 +348,5 @@ void PlaneDetector::delimitPlane(PlanarPatch *patch)
 bool PlaneDetector::isFalsePositive(PlanarPatch *patch)
 {
     return patch->numUpdates() == 0 ||
-            patch->getSize() / float(pointCloud()->maxSize()) < 0.01f;
+            patch->getSize() / mMaxSize < 0.01f;
 }

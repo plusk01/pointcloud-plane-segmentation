@@ -18,7 +18,7 @@ public:
         mTempBuffer.reserve(bufferSize);
     }
 
-    std::vector<float>& dataBuffer()
+    std::vector<double>& dataBuffer()
     {
         return mDataBuffer;
     }
@@ -38,14 +38,14 @@ public:
         }
     }
 
-    float getMedian()
+    double getMedian()
     {
-        std::memcpy(mTempBuffer.data(), mDataBuffer.data(), sizeof(float) * mSize);
+        std::memcpy(mTempBuffer.data(), mDataBuffer.data(), sizeof(double) * mSize);
         std::nth_element(mTempBuffer.begin(), mTempBuffer.begin() + mSize / 2, mTempBuffer.begin() + mSize);
         return mTempBuffer[mSize / 2];
     }
 
-    float getMAD(float median)
+    double getMAD(double median)
     {
         for (size_t i = 0; i < mSize; i++)
         {
@@ -55,22 +55,22 @@ public:
         return 1.4826f * mTempBuffer[mSize / 2];
     }
 
-    inline float getRScore(float value, float median, float mad)
+    inline double getRScore(double value, double median, double mad)
     {
         return std::abs(value - median) / mad;
     }
 
-    void getMinMaxRScore(float &min, float &max, float range)
+    void getMinMaxRScore(double &min, double &max, double range)
     {
-        float median = getMedian();
-        float mad = getMAD(median);
+        double median = getMedian();
+        double mad = getMAD(median);
         min = median - range * mad;
         max = median + range * mad;
     }
 
-    float getMean()
+    double getMean()
     {
-        float sum = 0;
+        double sum = 0;
         for (size_t i = 0; i < mSize; i++)
         {
             sum += mDataBuffer[i];
@@ -78,9 +78,9 @@ public:
         return sum / mSize;
     }
 
-    float getSTD(float mean)
+    double getSTD(double mean)
     {
-        float sum = 0;
+        double sum = 0;
         for (size_t i = 0; i < mSize; i++)
         {
             sum += std::pow(mDataBuffer[i] - mean, 2);
@@ -88,17 +88,17 @@ public:
         return std::sqrt(sum / (mSize - 1));
     }
 
-    void getMinMaxZScore(float &min, float &max, float range)
+    void getMinMaxZScore(double &min, double &max, double range)
     {
-        float mean = getMean();
-        float std = getSTD(mean);
+        double mean = getMean();
+        double std = getSTD(mean);
         min = mean - range * std;
         max = mean + range * std;
     }
 
 private:
-    std::vector<float> mDataBuffer;
-    std::vector<float> mTempBuffer;
+    std::vector<double> mDataBuffer;
+    std::vector<double> mTempBuffer;
     size_t mSize;
 
 };

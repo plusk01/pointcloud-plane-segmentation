@@ -11,20 +11,15 @@
 class AngleUtils
 {
 public:
-    inline static float deg2rad(float deg)
+    inline static double deg2rad(double deg)
     {
-        return static_cast<float>(deg * M_PI / 180);
+        return static_cast<double>(deg * M_PI / 180);
     }
 
-    inline static float rad2deg(float rad)
+    static Eigen::Vector3d rotate(const Eigen::Vector3d &v, double degrees, const Eigen::Vector3d &axis)
     {
-        return static_cast<float>(rad * 180 / M_PI);
-    }
-
-    static Eigen::Vector3f rotate(const Eigen::Vector3f &v, float degrees, const Eigen::Vector3f &axis)
-    {
-        Eigen::Affine3f t;
-        t = Eigen::AngleAxisf(AngleUtils::deg2rad(degrees), axis);
+        Eigen::Affine3d t;
+        t = Eigen::AngleAxisd(AngleUtils::deg2rad(degrees), axis);
         return t * v;
     }
 

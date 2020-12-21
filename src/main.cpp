@@ -9,41 +9,25 @@
 #include <open3d/Open3D.h>
 
 #include <rspd/planedetector.h>
-#include <rspd/pointcloud.h>
-#include <rspd/point.h>
 
 using namespace open3d;
 
-PointCloud3d* fromOpen3D(const open3d::geometry::PointCloud& cloud, std::vector<std::vector<int>>& neighbors)
-{
-    std::vector<Point3d> points;
-    points.reserve(cloud.points_.size());
-    for (size_t i=0; i<cloud.points_.size(); i++) {
-        points.emplace_back(cloud.points_[i].cast<float>());
-        points.back().normal(cloud.normals_[i].cast<float>());
-        points.back().neighbors(neighbors[i]);
-    }
-    return new PointCloud3d(points);
-}
-
-// ----------------------------------------------------------------------------
-
 std::shared_ptr<geometry::TriangleMesh> makePlane(
-    const Eigen::Vector3f& center, const Eigen::Vector3f& normal,
-    const Eigen::Vector3f& basisU, const Eigen::Vector3f& basisV)
+    const Eigen::Vector3d& center, const Eigen::Vector3d& normal,
+    const Eigen::Vector3d& basisU, const Eigen::Vector3d& basisV)
 {
     auto mesh_ptr = std::make_shared<geometry::TriangleMesh>();
 
     mesh_ptr->vertices_.resize(8);
-    mesh_ptr->vertices_[0] = (center - basisU - basisV).cast<double>();
-    mesh_ptr->vertices_[1] = (center - basisU + basisV).cast<double>();
-    mesh_ptr->vertices_[2] = (center + basisU - basisV).cast<double>();
-    mesh_ptr->vertices_[3] = (center + basisU + basisV).cast<double>();
+    mesh_ptr->vertices_[0] = center - basisU - basisV;
+    mesh_ptr->vertices_[1] = center - basisU + basisV;
+    mesh_ptr->vertices_[2] = center + basisU - basisV;
+    mesh_ptr->vertices_[3] = center + basisU + basisV;
 
-    mesh_ptr->vertices_[4] = (center + 0.01*normal - basisU - basisV).cast<double>();
-    mesh_ptr->vertices_[5] = (center + 0.01*normal - basisU + basisV).cast<double>();
-    mesh_ptr->vertices_[6] = (center + 0.01*normal + basisU - basisV).cast<double>();
-    mesh_ptr->vertices_[7] = (center + 0.01*normal + basisU + basisV).cast<double>();
+    mesh_ptr->vertices_[4] = center + 0.01*normal - basisU - basisV;
+    mesh_ptr->vertices_[5] = center + 0.01*normal - basisU + basisV;
+    mesh_ptr->vertices_[6] = center + 0.01*normal + basisU - basisV;
+    mesh_ptr->vertices_[7] = center + 0.01*normal + basisU + basisV;
     mesh_ptr->triangles_.push_back(Eigen::Vector3i(4, 7, 5));
     mesh_ptr->triangles_.push_back(Eigen::Vector3i(4, 6, 7));
     mesh_ptr->triangles_.push_back(Eigen::Vector3i(0, 2, 4));
@@ -95,26 +79,29 @@ int main(int argc, char *argv[]) {
     t1 = std::chrono::high_resolution_clock::now();
     geometry::KDTreeFlann kdtree;
     kdtree.SetGeometry(*cloud_ptr);
-    std::vector<std::vector<int>> allidx;
-    allidx.resize(cloud_ptr->points_.size());
+    std::vector<std::vector<int>> neighbors;
+    neighbors.resize(cloud_ptr->points_.size());
     std::cout << "num points: " << cloud_ptr->points_.size() << std::endl;
 #pragma omp parallel for schedule(static)
     for (int i = 0; i < (int)cloud_ptr->points_.size(); i++) {
         std::vector<int> indices;
         std::vector<double> distance2;
         if (kdtree.Search(cloud_ptr->points_[i], search_param, indices, distance2) >= 3) {
-            allidx[i] = indices;
+            neighbors[i] = indices;
         }
     }
     std::cout << "kdtree search: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
 
 
-    t1 = std::chrono::high_resolution_clock::now();
-    PointCloud3d* pointCloud = fromOpen3D(*cloud_ptr, allidx);
-    std::cout << "cloud convert: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
+    std::cout << "o3d cloud: center: " << cloud_ptr->GetCenter().transpose() << std::endl;
+    Eigen::Vector3d bl = cloud_ptr->GetMinBound();
+    Eigen::Vector3d tr = cloud_ptr->GetMaxBound();
+    std::cout << "o3d cloud: ext center: " << ((bl + tr) / 2).transpose() << std::endl;
+    std::cout << "o3d cloud: bottom left: " << bl.transpose() << std::endl;
+    std::cout << "o3d cloud: top right: " << tr.transpose() << std::endl;
 
     t1 = std::chrono::high_resolution_clock::now();
-    PlaneDetector rspd(pointCloud);
+    PlaneDetector rspd(cloud_ptr, neighbors);
     std::set<Plane*> planes = rspd.detect();
     std::cout << "rspd detect: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
 
