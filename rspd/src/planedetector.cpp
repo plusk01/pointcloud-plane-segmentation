@@ -8,6 +8,8 @@
 #include <unordered_map>
 #include <queue>
 
+#include <open3d/Open3D.h>
+
 PlaneDetector::PlaneDetector(const PointCloudConstPtr& pointCloud, std::vector<std::vector<int>>& neighbors)
     : mPointCloud(pointCloud)
     , mMinNormalDiff(std::cos(AngleUtils::deg2rad(60.0f)))
@@ -119,28 +121,29 @@ bool PlaneDetector::detectPlanarPatches(BVH3d *node, StatisticsUtils *statistics
 {
     if (node->numPoints() < minNumPoints) return false;
     node->partition(1, minNumPoints);
-    bool hasPlanarPatch = false;
+    bool iHavePlanarPatch = false;
+    bool childCouldHavePlanarPatch = false;
     for (size_t i = 0; i < 8; i++)
     {
         if (node->child(i) != NULL && detectPlanarPatches(node->child(i), statistics, minNumPoints, patches))
         {
-            hasPlanarPatch = true;
+            childCouldHavePlanarPatch = true;
         }
     }
-    if (!hasPlanarPatch && node->level() > 2)
+    if (!childCouldHavePlanarPatch && node->level() > 2)
     {
         PlanarPatch *patch = new PlanarPatch(pointCloud(), statistics, node->points(), mMinNormalDiff, mMaxDist, mOutlierRatio);
         if (patch->isPlanar())
         {
             patches.push_back(patch);
-            hasPlanarPatch = true;
+            iHavePlanarPatch = true;
         }
         else
         {
             delete patch;
         }
     }
-    return hasPlanarPatch;
+    return iHavePlanarPatch || childCouldHavePlanarPatch;
 }
 
 void PlaneDetector::growPatches(std::vector<PlanarPatch*> &patches, bool relaxed)

@@ -14,7 +14,7 @@ class BoundaryVolumeHierarchy
 public:
     using PointCloudConstPtr = std::shared_ptr<const open3d::geometry::PointCloud>;
     using Vector = Eigen::Vector3d;
-    static const size_t NUM_CHILDREN = 1 << DIMENSION;
+    static constexpr size_t NUM_CHILDREN = 1 << DIMENSION;
 
     BoundaryVolumeHierarchy(const PointCloudConstPtr& pointCloud)
         : mPointCloud(pointCloud)
@@ -64,6 +64,7 @@ public:
     {
         if (!isLeaf())
         {
+            open3d::utility::LogWarning("not isLeaf on level {}", mLevel);
             for (size_t i = 0; i < NUM_CHILDREN; i++)
             {
                 if (mChildren[i] != NULL)
@@ -77,10 +78,19 @@ public:
             Vector newCenters[NUM_CHILDREN];
             calculateNewCenters(newCenters);
 
+            // std::cout << "---" << std::endl;
+            // std::cout << "Current center: " << mCenter.transpose() << std::endl;
+            // std::cout << "New centers: " << std::endl;
+            // for (size_t i=0; i<NUM_CHILDREN; i++) {
+            //     std::cout << "\t-" << i << ": " << newCenters[i].transpose() << std::endl;
+            // }
+            // std::cout << "---" << std::endl;
+
             mLeaf = false;
 
             // create children
             double newSize = mSize / 2;
+            // open3d::utility::LogWarning("new centers (with newSize {}) on level {}", newSize, mLevel);
             for (size_t i = 0; i < NUM_CHILDREN; i++)
             {
                 mChildren[i] = NULL;
@@ -91,6 +101,7 @@ public:
             {
                 // calculate child index comparing position to child center
                 size_t childIndex = calculateChildIndex(this->pointCloud()->points_[index]);
+                // open3d::utility::LogWarning("Level {}, index {}, childIndex {}", mLevel, index, childIndex);
                 if (mChildren[childIndex] == NULL)
                 {
                     if (this->pointCloud()->points_[index].array().sum() == 0) {
@@ -136,16 +147,6 @@ public:
     const BoundaryVolumeHierarchy<DIMENSION>* parent() const
     {
         return mParent;
-    }
-
-    const Vector& center() const
-    {
-        return mCenter;
-    }
-
-    double cellSize() const
-    {
-        return mSize;
     }
 
     bool isRoot() const
@@ -202,18 +203,6 @@ public:
         }
     }
 
-    void getNeighborCells(std::vector<BoundaryVolumeHierarchy<DIMENSION>*> &neighbors)
-    {
-        BoundaryVolumeHierarchy<DIMENSION>* neighbor;
-        for (size_t i = 0; i < DIMENSION; i++)
-        {
-            neighbor = getNeighborCellsGreaterOrEqual(i, false);
-            getNeighborCellsSmaller(i, false, neighbor, neighbors);
-            neighbor = getNeighborCellsGreaterOrEqual(i, true);
-            getNeighborCellsSmaller(i, true, neighbor, neighbors);
-        }
-    }
-
 private:
     PointCloudConstPtr mPointCloud;
     BoundaryVolumeHierarchy *mRoot;
@@ -262,79 +251,6 @@ private:
             childIndex |= (position(dim) > mCenter(dim)) << (DIMENSION - dim - 1);
         }
         return childIndex;
-    }
-
-    size_t getIndexOnParent()
-    {
-        for (size_t i = 0; i < NUM_CHILDREN; i++)
-        {
-            if (mParent->mChildren[i] == this)
-            {
-                return i;
-            }
-        }
-        throw "Could not find node on parent";
-    }
-
-    size_t getIncrement(size_t direction, bool greaterThan)
-    {
-        int increment = 1 << (DIMENSION - direction - 1);
-        if (!greaterThan)
-        {
-            increment = NUM_CHILDREN - increment;
-        }
-        return increment;
-    }
-
-    BoundaryVolumeHierarchy<DIMENSION>* getNeighborCellsGreaterOrEqual(size_t direction, bool greaterThan)
-    {
-        if (isRoot())
-        {
-            return NULL;
-        }
-        else if (greaterThan && mParent->mCenter(direction) > mCenter(direction) ||
-            !greaterThan && mParent->mCenter(direction) < mCenter(direction))
-        {
-            size_t index = getIndexOnParent();
-            size_t increment = getIncrement(direction, greaterThan);
-            return mParent->mChildren[(index + increment) % NUM_CHILDREN];
-        }
-        BoundaryVolumeHierarchy<DIMENSION>* node = mParent->getNeighborCellsGreaterOrEqual(direction, greaterThan);
-        if (node == NULL || node->isLeaf())
-        {
-            return node;
-        }
-        size_t index = getIndexOnParent();
-        size_t increment = getIncrement(direction, !greaterThan);
-        return node->mChildren[(index + increment) % NUM_CHILDREN];
-    }
-
-    void getNeighborCellsSmaller(size_t direction, bool greaterThan, BoundaryVolumeHierarchy<DIMENSION>* neighbor,
-                                 std::vector<BoundaryVolumeHierarchy<DIMENSION>*> &neighbors)
-    {
-        std::queue<BoundaryVolumeHierarchy<DIMENSION>*> candidates;
-        if (neighbor != NULL) candidates.push(neighbor);
-        while (candidates.size() > 0)
-        {
-            BoundaryVolumeHierarchy<DIMENSION>* front = candidates.front();
-            candidates.pop();
-            if (front->isLeaf())
-            {
-                neighbors.push_back(front);
-            }
-            else
-            {
-                for (size_t i = 0; i < NUM_CHILDREN; i++)
-                {
-                    if (front->mChildren[i] == NULL) continue;
-                    if ((greaterThan && front->mCenter(direction) > front->mChildren[i]->mCenter(direction)) ||
-                        (!greaterThan && front->mCenter(direction) < front->mChildren[i]->mCenter(direction)))
-                    {
-                        candidates.push(front->mChildren[i]);
-                    }
-                }
-            }
-        }
     }
 
 };
