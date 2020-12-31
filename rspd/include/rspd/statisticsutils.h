@@ -7,8 +7,6 @@
 
 #include <Eigen/Core>
 
-#include "angleutils.h"
-
 class StatisticsUtils
 {
 public:

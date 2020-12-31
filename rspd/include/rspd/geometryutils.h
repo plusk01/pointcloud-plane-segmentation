@@ -33,13 +33,6 @@ public:
         return Eigen::Vector2d(alpha, beta);
     }
 
-    inline static Eigen::Vector2d projectOntoOrthogonalBasis(const Eigen::Vector3d &vector, const Eigen::Vector3d &normal)
-    {
-        Eigen::Vector3d basisU, basisV;
-        orthogonalBasis(normal, basisU, basisV);
-        return projectOntoOrthogonalBasis(vector, basisU, basisV);
-    }
-
     // monotone chain algorithm for convex hull
     // https://en.wikipedia.org/wiki/Convex_hull_algorithms#Algorithms
     // https://github.com/MiguelVieira/ConvexHull2D/blob/master/ConvexHull.cpp#L119

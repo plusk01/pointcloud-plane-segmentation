@@ -28,10 +28,9 @@ struct RotatedRect
 
     RotatedRect(const Eigen::Matrix3Xd &matrix, const Eigen::Matrix3d &basis, double degrees)
     {
-        Eigen::Matrix3d newBasis;
-        newBasis.row(0) = AngleUtils::rotate(basis.row(0), degrees, basis.row(2));
-        newBasis.row(1) = AngleUtils::rotate(basis.row(1), degrees, basis.row(2));
-        newBasis.row(2) = basis.row(2);
+        Eigen::Matrix3d R;
+        R = Eigen::AngleAxisd(degrees * 3.14159 / 180., basis.row(2));
+        Eigen::Matrix3d newBasis = basis * R.transpose();
         Eigen::Matrix3Xd newMatrix = newBasis * matrix;
         Eigen::Vector3d max = newMatrix.rowwise().maxCoeff();
         Eigen::Vector3d min = newMatrix.rowwise().minCoeff();
