@@ -320,7 +320,7 @@ void PlaneDetector::delimitPlane(PlanarPatch *patch)
     Eigen::Vector3d basisU, basisV;
     GeometryUtils::orthogonalBasis(normal, basisU, basisV);
     Eigen::Matrix3d basis;
-    basis << basisU.transpose(), basisV.transpose(), normal.transpose();
+    basis << basisU, basisV, normal;
     Eigen::Matrix3Xd matrix(3, outlier.size());
     for (size_t i = 0; i < outlier.size(); i++)
     {
@@ -346,8 +346,8 @@ void PlaneDetector::delimitPlane(PlanarPatch *patch)
     }
     patch->rect() = RotatedRect(matrix, basis, (minAngle + maxAngle) / 2);
     Eigen::Vector3d center = patch->plane().center();
-    Eigen::Vector3d minBasisU = patch->rect().basis.row(0);
-    Eigen::Vector3d minBasisV = patch->rect().basis.row(1);
+    Eigen::Vector3d minBasisU = patch->rect().basis.col(0);
+    Eigen::Vector3d minBasisV = patch->rect().basis.col(1);
     center -= minBasisU * minBasisU.dot(center);
     center -= minBasisV * minBasisV.dot(center);
     center += minBasisU * (patch->rect().bottomLeft(0) + patch->rect().topRight(0)) / 2;
@@ -356,6 +356,21 @@ void PlaneDetector::delimitPlane(PlanarPatch *patch)
     double lengthV = (patch->rect().topRight(1) - patch->rect().bottomLeft(1)) / 2;
     Plane newPlane(center, patch->plane().normal(), minBasisU * lengthU, minBasisV * lengthV);
     patch->plane(newPlane);
+    // if (patch->rect().area > 20) {
+    //     std::cout << std::endl << std::endl;
+    //     std::cout << "----------------------------------------------------------" << std::endl;
+    //     std::cout << "basis: " << std::endl << basis << std::endl << std::endl;
+    //     std::cout << "matrix: " << std::endl << matrix << std::endl << std::endl;
+    //     std::cout << "R: " << std::endl << patch->rect().R << std::endl << std::endl;
+    //     std::cout << "R_12: " << std::endl << patch->rect().R_12 << std::endl << std::endl;
+    //     std::cout << "new basis: " << std::endl << patch->rect().basis << std::endl << std::endl;
+    //     std::cout << "R * basis: " << std::endl << patch->rect().R * basis << std::endl << std::endl;
+    //     std::cout << "new matrix: " << std::endl << patch->rect().matrix << std::endl << std::endl;
+    //     std::cout << "area: " << patch->rect().area << std::endl;
+    //     std::cout << "rot: " << (minAngle + maxAngle) / 2 << std::endl;
+    //     std::cout << "----------------------------------------------------------" << std::endl;
+    //     std::cout << std::endl << std::endl;
+    // }
 }
 
 bool PlaneDetector::isFalsePositive(PlanarPatch *patch)

@@ -19,19 +19,17 @@ struct RotatedRect
     double area;
     Eigen::Vector3d bottomLeft;
     Eigen::Vector3d topRight;
+    Eigen::Matrix3d R_12;
 
-    RotatedRect()
-        : area(std::numeric_limits<double>::max())
-    {
-
-    }
+    RotatedRect() : area(std::numeric_limits<double>::max()) {}
 
     RotatedRect(const Eigen::Matrix3Xd &matrix, const Eigen::Matrix3d &basis, double degrees)
     {
         Eigen::Matrix3d R;
-        R = Eigen::AngleAxisd(degrees * 3.14159 / 180., basis.row(2));
-        Eigen::Matrix3d newBasis = basis * R.transpose();
-        Eigen::Matrix3Xd newMatrix = newBasis * matrix;
+        R_12 = Eigen::AngleAxisd(degrees * 3.14159 / 180., Eigen::Vector3d::UnitZ());
+
+        Eigen::Matrix3d newBasis = basis * R_12;
+        Eigen::Matrix3Xd newMatrix = newBasis.transpose() * matrix;
         Eigen::Vector3d max = newMatrix.rowwise().maxCoeff();
         Eigen::Vector3d min = newMatrix.rowwise().minCoeff();
         double w = max(0) - min(0);
@@ -42,6 +40,7 @@ struct RotatedRect
         this->basis = newBasis;
         this->bottomLeft = min;
         this->topRight = max;
+        this->R_12 = R_12;
     }
 
 };
