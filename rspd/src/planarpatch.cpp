@@ -141,17 +141,17 @@ void PlanarPatch::updatePlane()
 {
     mPlane = getPlane();
     mVisited.clear();
-    // if (mNumUpdates > 1)
-    // {
-    //     mUsedVisited2 = true;
-    // }
-    // if (mUsedVisited2) {
-    //     if (mVisited2.empty()) {
-    //         mVisited2 = std::vector<bool>(mPointCloud->points_.size(), false);
-    //     } else {
-    //         std::fill(mVisited2.begin(), mVisited2.end(), false);
-    //     }
-    // }
+    if (mNumUpdates > 1)
+    {
+        mUsedVisited2 = true;
+    }
+    if (mUsedVisited2) {
+        if (mVisited2.empty()) {
+            mVisited2 = std::vector<bool>(mPointCloud->points_.size(), false);
+        } else {
+            std::fill(mVisited2.begin(), mVisited2.end(), false);
+        }
+    }
     mNumNewPoints = 0;
     ++mNumUpdates;
 }

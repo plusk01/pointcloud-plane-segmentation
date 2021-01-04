@@ -22,8 +22,8 @@ inline static double deg2rad(double deg)
 
 PlaneDetector::PlaneDetector(const PointCloudConstPtr& pointCloud, std::vector<std::vector<int>>& neighbors)
     : mPointCloud(pointCloud)
-    , mMinNormalDiff(/*std::cos(deg2rad(60.0f))*/0.5)
-    , mMaxDist(/*std::cos(deg2rad(75.0f))*/0.25)
+    , mMinNormalDiff(std::cos(deg2rad(60.0f)))
+    , mMaxDist(std::cos(deg2rad(75.0f)))
     , mOutlierRatio(0.75f)
 {
     mNeighbors.swap(neighbors);
@@ -49,8 +49,8 @@ std::set<Plane*> PlaneDetector::detect()
     double timeDelimit = 0;
 
     auto t1 = std::chrono::high_resolution_clock::now();
-    size_t minNumPoints = 30; //std::max(size_t(10), size_t(pointCloud()->size() * 0.001f));
-    // size_t minNumPoints = std::max(size_t(10), size_t(pointCloud()->size() * 0.001f));
+    // size_t minNumPoints = std::max(static_cast<size_t>(30), static_cast<size_t>(pointCloud()->points_.size() * 0.001));
+    size_t minNumPoints = 30;
     StatisticsUtils statistics(pointCloud()->points_.size());
     BVH3d octree(pointCloud());
     std::vector<PlanarPatch*> patches;
@@ -85,7 +85,7 @@ std::set<Plane*> PlaneDetector::detect()
     } while (changed);
 
     t1 = std::chrono::high_resolution_clock::now();
-    // growPatches(patches, true);
+    growPatches(patches, true);
     timeRelaxedGrowth += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
 
     t1 = std::chrono::high_resolution_clock::now();
