@@ -12,8 +12,8 @@ The original implementation and other details can be found on [GitHub](https://g
 When executed on a raw point cloud with 50k points, `rspd` finds 20 planar patches in approximately 120 ms (i9-7920X, 64GB).
 
 <p align="middle">
-  <img src=".github/bluepcd.png" width="100%" />
-  <img src=".github/bluepcd-with-planes.png" width="100%" />
+  <img src=".github/bluepcd.png" width="49%" />
+  <img src=".github/bluepcd-with-planes.png" width="49%" />
 </p>
 
 ## Build and Run
@@ -63,4 +63,4 @@ $ cmake -DCMAKE_INSTALL_PREFIX=$(pwd)/install ..
 
 This implementation only provides the `rspd` functionality for planar patch detection. Additionally, it removes the Qt dependency and uses modern CMake for the build system. The algorithm and default parameters are the same as in [the original](https://github.com/abnerrjo/PlaneDetection).
 
-Although the `master` branch depends on Open3D, the `rspd-original` branch does not.
+Although the `master` branch `rspd` library depends on Open3D, the [`rspd-original`](https://github.com/plusk01/pointcloud-plane-segmentation/tree/original-rspd) branch does not (the `rspd` library, though the app used to test / visualize does).
