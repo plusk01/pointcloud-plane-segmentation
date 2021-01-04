@@ -1,0 +1,1 @@
+This data was captured from the [Ford Autonomous Vechicle Dataset](https://avdata.ford.com/). It is a scan from the "blue" Velodyne HDL-32E as described in the accompanying [paper](https://arxiv.org/abs/2003.07969). It comes from V2-Log2.
