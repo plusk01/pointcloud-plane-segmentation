@@ -22,8 +22,8 @@ inline static double deg2rad(double deg)
 
 PlaneDetector::PlaneDetector(const PointCloudConstPtr& pointCloud, std::vector<std::vector<int>>& neighbors)
     : mPointCloud(pointCloud)
-    , mMinNormalDiff(std::cos(deg2rad(60.0f)))
-    , mMaxDist(std::cos(deg2rad(75.0f)))
+    , mMinNormalDiff(/*std::cos(deg2rad(60.0f))*/0.5)
+    , mMaxDist(/*std::cos(deg2rad(75.0f))*/0.25)
     , mOutlierRatio(0.75f)
 {
     mNeighbors.swap(neighbors);
@@ -67,7 +67,7 @@ std::set<Plane*> PlaneDetector::detect()
     }
 
     std::cout << "#" << patches.size() << std::endl;
-    bool changed;
+    bool changed = false;
     do
     {
         t1 = std::chrono::high_resolution_clock::now();
@@ -85,7 +85,7 @@ std::set<Plane*> PlaneDetector::detect()
     } while (changed);
 
     t1 = std::chrono::high_resolution_clock::now();
-    growPatches(patches, true);
+    // growPatches(patches, true);
     timeRelaxedGrowth += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
 
     t1 = std::chrono::high_resolution_clock::now();

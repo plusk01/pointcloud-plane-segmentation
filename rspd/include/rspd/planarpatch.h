@@ -186,7 +186,7 @@ public:
 
     double getSize() const;
 
-private:
+// private:
     PointCloudConstPtr mPointCloud;
     StatisticsUtils *mStatistics;
     std::vector<size_t> mPoints;

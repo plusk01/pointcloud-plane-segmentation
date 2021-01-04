@@ -74,7 +74,8 @@ int main(int argc, char *argv[]) {
 
     auto t1 = std::chrono::high_resolution_clock::now();
     cloud_ptr->EstimateNormals(search_param);
-    std::cout << "o3d EstimateNormals: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
+    const double t_normals = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
+    std::cout << "o3d EstimateNormals: " << t_normals << " seconds" << std::endl;
 
     t1 = std::chrono::high_resolution_clock::now();
     geometry::KDTreeFlann kdtree;
@@ -86,11 +87,12 @@ int main(int argc, char *argv[]) {
     for (int i = 0; i < (int)cloud_ptr->points_.size(); i++) {
         std::vector<int> indices;
         std::vector<double> distance2;
-        if (kdtree.Search(cloud_ptr->points_[i], search_param, indices, distance2) >= 3) {
+        if (kdtree.Search(cloud_ptr->points_[i], search_param, indices, distance2)/* >= 3*/) {
             neighbors[i] = indices;
         }
     }
-    std::cout << "kdtree search: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
+    const double t_kdtree = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
+    std::cout << "kdtree search: " << t_kdtree << " seconds" << std::endl;
 
 
     std::cout << "o3d cloud: center: " << cloud_ptr->GetCenter().transpose() << std::endl;
@@ -103,10 +105,11 @@ int main(int argc, char *argv[]) {
     t1 = std::chrono::high_resolution_clock::now();
     PlaneDetector rspd(cloud_ptr, neighbors);
     std::set<Plane*> planes = rspd.detect();
-    std::cout << "rspd detect: " << std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count() << " seconds" << std::endl;
+    const double t_rspd = std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
+    std::cout << "rspd detect: " << t_rspd << " seconds" << std::endl;
+    std::cout << std::endl;
 
     std::cout << "Detected the following " << planes.size() << " planes:" << std::endl;
-    std::cout << "==============================" << std::endl;
     for (const auto& p : planes) {
         std::cout << p->normal().transpose() << " ";
         std::cout << p->distanceFromOrigin() << "\t";
@@ -115,6 +118,10 @@ int main(int argc, char *argv[]) {
         std::cout << p->basisV().transpose() << std::endl;
     }
     std::cout << "==============================" << std::endl;
+
+    std::cout << std::endl;
+    std::cout << "EstimateNormals: " << t_normals << " seconds" << std::endl;
+    std::cout << "DetectPlanarPatches: " << planes.size() << " in " << (t_rspd+t_kdtree) << " seconds" << std::endl;
 
     //
     // Visualization
