@@ -1,5 +1,5 @@
-#ifndef BOUNDARYVOLUMEHIERARCHY_H
-#define BOUNDARYVOLUMEHIERARCHY_H
+#ifndef BVH3d_H
+#define BVH3d_H
 
 #include <algorithm>
 #include <numeric>
@@ -8,15 +8,14 @@
 
 #include <open3d/Open3D.h>
 
-template <size_t DIMENSION>
-class BoundaryVolumeHierarchy
+class BVH3d
 {
 public:
     using PointCloudConstPtr = std::shared_ptr<const open3d::geometry::PointCloud>;
     using Vector = Eigen::Vector3d;
-    static constexpr size_t NUM_CHILDREN = 1 << DIMENSION;
+    static constexpr size_t NUM_CHILDREN = 1 << 3;
 
-    BoundaryVolumeHierarchy(const PointCloudConstPtr& pointCloud)
+    BVH3d(const PointCloudConstPtr& pointCloud)
         : mPointCloud(pointCloud)
         , mRoot(this)
         , mParent(this)
@@ -36,12 +35,11 @@ public:
         mSize = maxSize / 2;
         mIndices = std::vector<size_t>(pointCloud->points_.size());
         std::iota(mIndices.begin(), mIndices.end(), 0);
-        // mLeafTable = std::vector<BoundaryVolumeHierarchy<DIMENSION>*>(pointCloud->points_.size(), this);
     }
 
-    BoundaryVolumeHierarchy(const BoundaryVolumeHierarchy &bvh) = delete;
+    BVH3d(const BVH3d &bvh) = delete;
 
-    ~BoundaryVolumeHierarchy()
+    ~BVH3d()
     {
         if (!isLeaf())
         {
@@ -78,19 +76,10 @@ public:
             Vector newCenters[NUM_CHILDREN];
             calculateNewCenters(newCenters);
 
-            // std::cout << "---" << std::endl;
-            // std::cout << "Current center: " << mCenter.transpose() << std::endl;
-            // std::cout << "New centers: " << std::endl;
-            // for (size_t i=0; i<NUM_CHILDREN; i++) {
-            //     std::cout << "\t-" << i << ": " << newCenters[i].transpose() << std::endl;
-            // }
-            // std::cout << "---" << std::endl;
-
             mLeaf = false;
 
             // create children
             double newSize = mSize / 2;
-            // open3d::utility::LogWarning("new centers (with newSize {}) on level {}", newSize, mLevel);
             for (size_t i = 0; i < NUM_CHILDREN; i++)
             {
                 mChildren[i] = NULL;
@@ -101,18 +90,15 @@ public:
             {
                 // calculate child index comparing position to child center
                 size_t childIndex = calculateChildIndex(this->pointCloud()->points_[index]);
-                // open3d::utility::LogWarning("Level {}, index {}, childIndex {}", mLevel, index, childIndex);
                 if (mChildren[childIndex] == NULL)
                 {
                     if (this->pointCloud()->points_[index].array().sum() == 0) {
                         std::cout << "zero!" << std::endl;
                     }
-                    mChildren[childIndex] = new BoundaryVolumeHierarchy<DIMENSION>(this, newCenters[childIndex], newSize);
+                    mChildren[childIndex] = new BVH3d(this, newCenters[childIndex], newSize);
                     mChildren[childIndex]->mIndices.reserve(mIndices.size());
                 }
                 mChildren[childIndex]->mIndices.push_back(index);
-                // update current leaf where point is stored
-                // mRoot->mLeafTable[index] = mChildren[childIndex];
             }
 
             mIndices.clear();
@@ -127,15 +113,15 @@ public:
         }
     }
 
-    BoundaryVolumeHierarchy<DIMENSION>* child(size_t index)
+    BVH3d* child(size_t index)
     {
         return mChildren[index];
     }
 
-    std::vector<const BoundaryVolumeHierarchy<DIMENSION>*> children() const
+    std::vector<const BVH3d*> children() const
     {
-        if (isLeaf()) return std::vector<const BoundaryVolumeHierarchy<DIMENSION>*>();
-        std::vector<const BoundaryVolumeHierarchy<DIMENSION>*> children;
+        if (isLeaf()) return std::vector<const BVH3d*>();
+        std::vector<const BVH3d*> children;
         for (size_t i = 0; i < NUM_CHILDREN; i++)
         {
             if (mChildren[i] != NULL)
@@ -144,7 +130,7 @@ public:
         return children;
     }
 
-    const BoundaryVolumeHierarchy<DIMENSION>* parent() const
+    const BVH3d* parent() const
     {
         return mParent;
     }
@@ -205,17 +191,16 @@ public:
 
 private:
     PointCloudConstPtr mPointCloud;
-    BoundaryVolumeHierarchy *mRoot;
-    BoundaryVolumeHierarchy *mParent;
-    BoundaryVolumeHierarchy *mChildren[NUM_CHILDREN];
+    BVH3d *mRoot;
+    BVH3d *mParent;
+    BVH3d *mChildren[NUM_CHILDREN];
     Vector mCenter;
     double mSize;
     bool mLeaf;
     size_t mLevel;
     std::vector<size_t> mIndices;
-    // std::vector<BoundaryVolumeHierarchy<DIMENSION>*> mLeafTable;
 
-    BoundaryVolumeHierarchy(BoundaryVolumeHierarchy *parent, const Vector &center, double size)
+    BVH3d(BVH3d *parent, const Vector &center, double size)
         : mPointCloud(parent->pointCloud())
         , mRoot(parent->mRoot)
         , mParent(parent)
@@ -233,11 +218,11 @@ private:
     void calculateNewCenters(Vector centers[NUM_CHILDREN])
     {
         double newSize = mSize / 2;
-        for (size_t dim = 0; dim < DIMENSION; dim++)
+        for (size_t dim = 0; dim < 3; dim++)
         {
             for (size_t i = 0; i < NUM_CHILDREN; i++)
             {
-                int signal = (((i & (1 << (DIMENSION - dim - 1))) >> (DIMENSION - dim - 1)) << 1) - 1;
+                int signal = (((i & (1 << (3 - dim - 1))) >> (3 - dim - 1)) << 1) - 1;
                 centers[i](dim) = mCenter(dim) + newSize * signal;
             }
         }
@@ -246,15 +231,13 @@ private:
     size_t calculateChildIndex(const Vector &position)
     {
         size_t childIndex = 0;
-        for (size_t dim = 0; dim < DIMENSION; dim++)
+        for (size_t dim = 0; dim < 3; dim++)
         {
-            childIndex |= (position(dim) > mCenter(dim)) << (DIMENSION - dim - 1);
+            childIndex |= (position(dim) > mCenter(dim)) << (3 - dim - 1);
         }
         return childIndex;
     }
 
 };
 
-using BVH3d = BoundaryVolumeHierarchy<3>;
-
-#endif // BOUNDARYVOLUMEHIERARCHY_H
+#endif // BVH3d_H

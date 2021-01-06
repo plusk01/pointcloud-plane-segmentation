@@ -10,7 +10,7 @@ class PlaneDetector
 {
 public:
     using PointCloudConstPtr = std::shared_ptr<const open3d::geometry::PointCloud>;
-    PlaneDetector(const PointCloudConstPtr& pointCloud, std::vector<std::vector<int>>& neighbors);
+    PlaneDetector(const PointCloudConstPtr& pointCloud, std::vector<std::vector<int>>& neighbors, size_t minNumPoints = 30);
 
     void delimitPlane(PlanarPatch *patch);
 
@@ -66,8 +66,9 @@ private:
     double mMinNormalDiff;
     double mMaxDist;
     double mOutlierRatio;
+    size_t mMinNumPoints;
 
-    bool detectPlanarPatches(BVH3d *node, StatisticsUtils *statistics, size_t minNumPoints, std::vector<PlanarPatch*> &patches);
+    bool detectPlanarPatches(BVH3d *node, StatisticsUtils *statistics, std::vector<PlanarPatch*> &patches);
 
     void growPatches(std::vector<PlanarPatch*> &patches, bool relaxed = false);
 
