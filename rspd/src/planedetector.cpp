@@ -13,6 +13,13 @@
     #define M_PI 3.14159265358979323846
 #endif
 
+#ifdef DEBUG
+#   define IF_DEBUG( ... )   __VA_ARGS__
+#else
+#   define IF_DEBUG( ... )
+#endif /* DEBUG */
+
+
 #include <open3d/Open3D.h>
 
 inline static double deg2rad(double deg)
@@ -20,11 +27,12 @@ inline static double deg2rad(double deg)
     return static_cast<double>(deg * M_PI / 180);
 }
 
-PlaneDetector::PlaneDetector(const PointCloudConstPtr& pointCloud, std::vector<std::vector<int>>& neighbors)
+PlaneDetector::PlaneDetector(const PointCloudConstPtr& pointCloud, std::vector<std::vector<int>>& neighbors, size_t minNumPoints)
     : mPointCloud(pointCloud)
     , mMinNormalDiff(std::cos(deg2rad(60.0f)))
     , mMaxDist(std::cos(deg2rad(75.0f)))
     , mOutlierRatio(0.75f)
+    , mMinNumPoints(minNumPoints)
 {
     mNeighbors.swap(neighbors);
 
@@ -41,22 +49,26 @@ PlaneDetector::PlaneDetector(const PointCloudConstPtr& pointCloud, std::vector<s
 
 std::set<Plane*> PlaneDetector::detect()
 {
-    double timeDetectPatches = 0;
-    double timeMerge = 0;
-    double timeGrowth = 0;
-    double timeRelaxedGrowth = 0;
-    double timeUpdate = 0;
-    double timeDelimit = 0;
+    IF_DEBUG(
+        double timeDetectPatches = 0;
+        double timeMerge = 0;
+        double timeGrowth = 0;
+        double timeRelaxedGrowth = 0;
+        double timeUpdate = 0;
+        double timeDelimit = 0;
+    )
 
-    auto t1 = std::chrono::high_resolution_clock::now();
-    // size_t minNumPoints = std::max(static_cast<size_t>(30), static_cast<size_t>(pointCloud()->points_.size() * 0.001));
-    size_t minNumPoints = 30;
+    IF_DEBUG(
+        auto t1 = std::chrono::high_resolution_clock::now();
+    )
     StatisticsUtils statistics(pointCloud()->points_.size());
     BVH3d octree(pointCloud());
     std::vector<PlanarPatch*> patches;
-    detectPlanarPatches(&octree, &statistics, minNumPoints, patches);
-    timeDetectPatches += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
-
+    detectPlanarPatches(&octree, &statistics, patches);
+    IF_DEBUG(
+        timeDetectPatches += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
+    )
+    
     mPatchPoints = std::vector<PlanarPatch*>(pointCloud()->points_.size(), NULL);
     for (PlanarPatch *patch : patches)
     {
@@ -66,29 +78,40 @@ std::set<Plane*> PlaneDetector::detect()
         }
     }
 
-    std::cout << "#" << patches.size() << std::endl;
+    IF_DEBUG(
+        std::cout << "#" << patches.size() << std::endl;
+    )
     bool changed = false;
     do
     {
-        t1 = std::chrono::high_resolution_clock::now();
+        IF_DEBUG(
+            t1 = std::chrono::high_resolution_clock::now();
+        )
         growPatches(patches);
-        timeGrowth += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
-
-        t1 = std::chrono::high_resolution_clock::now();
+        IF_DEBUG(
+            timeGrowth += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
+            t1 = std::chrono::high_resolution_clock::now();
+        )
         mergePatches(patches);
-        timeMerge += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
-        std::cout << "#" << patches.size() << std::endl;
-
-        t1 = std::chrono::high_resolution_clock::now();
+        IF_DEBUG(
+            timeMerge += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
+            std::cout << "#" << patches.size() << std::endl;
+            t1 = std::chrono::high_resolution_clock::now();
+        )
         changed = updatePatches(patches);
-        timeUpdate += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
+        IF_DEBUG(
+            timeUpdate += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
+        )
     } while (changed);
 
-    t1 = std::chrono::high_resolution_clock::now();
+    IF_DEBUG(
+        t1 = std::chrono::high_resolution_clock::now();
+    )
     growPatches(patches, true);
-    timeRelaxedGrowth += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
-
-    t1 = std::chrono::high_resolution_clock::now();
+    IF_DEBUG(
+        timeRelaxedGrowth += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
+        t1 = std::chrono::high_resolution_clock::now();
+    )
     std::vector<PlanarPatch*> truePositivePatches;
     for (PlanarPatch *patch : patches)
     {
@@ -102,10 +125,12 @@ std::set<Plane*> PlaneDetector::detect()
             truePositivePatches.push_back(patch);
         }
     }
-    patches = truePositivePatches;
-    std::cout << "#" << patches.size() << std::endl;
-    timeDelimit += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
 
+    patches = truePositivePatches;
+    IF_DEBUG(
+        std::cout << "#" << patches.size() << std::endl;
+        timeDelimit += std::chrono::duration_cast<std::chrono::duration<double>>(std::chrono::high_resolution_clock::now() - t1).count();
+    )
     std::set<Plane*> planes;
     for (PlanarPatch *patch : patches)
     {
@@ -115,27 +140,28 @@ std::set<Plane*> PlaneDetector::detect()
         delete patch;
     }
 
-    std::cout << "#" << planes.size() << std::endl;
-    std::cout << "Detect planar patches - Time elapsed: " << timeDetectPatches << "s" <<  std::endl;
-    std::cout << "Merge patches - Time elapsed: " << timeMerge << "s" <<  std::endl;
-    std::cout << "Grow patches - Time elapsed: " << timeGrowth << "s" <<  std::endl;
-    std::cout << "Relaxed Grow patches - Time elapsed: " << timeRelaxedGrowth << "s" <<  std::endl;
-    std::cout << "Update - Time elapsed: " << timeUpdate << "s" <<  std::endl;
-    std::cout << "Total time elapsed: " << timeDetectPatches + timeMerge + timeGrowth + timeRelaxedGrowth + timeUpdate << "s" << std::endl;
-    std::cout << "Delimit planes - Time elapsed: " << timeDelimit << "s" <<  std::endl;
-
+    IF_DEBUG(
+        std::cout << "#" << planes.size() << std::endl;
+        std::cout << "Detect planar patches - Time elapsed: " << timeDetectPatches << "s" <<  std::endl;
+        std::cout << "Merge patches - Time elapsed: " << timeMerge << "s" <<  std::endl;
+        std::cout << "Grow patches - Time elapsed: " << timeGrowth << "s" <<  std::endl;
+        std::cout << "Relaxed Grow patches - Time elapsed: " << timeRelaxedGrowth << "s" <<  std::endl;
+        std::cout << "Update - Time elapsed: " << timeUpdate << "s" <<  std::endl;
+        std::cout << "Total time elapsed: " << timeDetectPatches + timeMerge + timeGrowth + timeRelaxedGrowth + timeUpdate << "s" << std::endl;
+        std::cout << "Delimit planes - Time elapsed: " << timeDelimit << "s" <<  std::endl;
+    )
     return planes;
 }
 
-bool PlaneDetector::detectPlanarPatches(BVH3d *node, StatisticsUtils *statistics, size_t minNumPoints, std::vector<PlanarPatch*> &patches)
+bool PlaneDetector::detectPlanarPatches(BVH3d *node, StatisticsUtils *statistics, std::vector<PlanarPatch*> &patches)
 {
-    if (node->numPoints() < minNumPoints) return false;
-    node->partition(1, minNumPoints);
+    if (node->numPoints() < mMinNumPoints) return false;
+    node->partition(1, mMinNumPoints);
     bool iHavePlanarPatch = false;
     bool childCouldHavePlanarPatch = false;
     for (size_t i = 0; i < 8; i++)
     {
-        if (node->child(i) != NULL && detectPlanarPatches(node->child(i), statistics, minNumPoints, patches))
+        if (node->child(i) != NULL && detectPlanarPatches(node->child(i), statistics, patches))
         {
             childCouldHavePlanarPatch = true;
         }
@@ -356,21 +382,6 @@ void PlaneDetector::delimitPlane(PlanarPatch *patch)
     double lengthV = (patch->rect().topRight(1) - patch->rect().bottomLeft(1)) / 2;
     Plane newPlane(center, patch->plane().normal(), minBasisU * lengthU, minBasisV * lengthV);
     patch->plane(newPlane);
-    // if (patch->rect().area > 20) {
-    //     std::cout << std::endl << std::endl;
-    //     std::cout << "----------------------------------------------------------" << std::endl;
-    //     std::cout << "basis: " << std::endl << basis << std::endl << std::endl;
-    //     std::cout << "matrix: " << std::endl << matrix << std::endl << std::endl;
-    //     std::cout << "R: " << std::endl << patch->rect().R << std::endl << std::endl;
-    //     std::cout << "R_12: " << std::endl << patch->rect().R_12 << std::endl << std::endl;
-    //     std::cout << "new basis: " << std::endl << patch->rect().basis << std::endl << std::endl;
-    //     std::cout << "R * basis: " << std::endl << patch->rect().R * basis << std::endl << std::endl;
-    //     std::cout << "new matrix: " << std::endl << patch->rect().matrix << std::endl << std::endl;
-    //     std::cout << "area: " << patch->rect().area << std::endl;
-    //     std::cout << "rot: " << (minAngle + maxAngle) / 2 << std::endl;
-    //     std::cout << "----------------------------------------------------------" << std::endl;
-    //     std::cout << std::endl << std::endl;
-    // }
 }
 
 bool PlaneDetector::isFalsePositive(PlanarPatch *patch)
